@@ -23,7 +23,7 @@ pip install -r requirements.txt
 Collect image references from saved HTML, CSS, JS, JSON, or text files:
 
 ```bash
-python scripts/collect_assets.py examples/source-page \
+python3 scripts/collect_assets.py examples/source-page \
   --base-url https://example.com \
   --include "/assets/" \
   --manifest outputs/assets.json
@@ -32,7 +32,7 @@ python scripts/collect_assets.py examples/source-page \
 Download matching assets:
 
 ```bash
-python scripts/collect_assets.py examples/source-page \
+python3 scripts/collect_assets.py examples/source-page \
   --base-url https://example.com \
   --include "/assets/" \
   --download-dir outputs/assets \
@@ -42,7 +42,7 @@ python scripts/collect_assets.py examples/source-page \
 ## Build A Contact Sheet
 
 ```bash
-python scripts/build_contact_sheet.py \
+python3 scripts/build_contact_sheet.py \
   --input-dir outputs/assets \
   --output outputs/contact-sheet.jpg \
   --labels
@@ -53,7 +53,7 @@ python scripts/build_contact_sheet.py \
 When generated images use a flat chroma-key background:
 
 ```bash
-python scripts/chroma_to_alpha.py \
+python3 scripts/chroma_to_alpha.py \
   --input outputs/generated-on-magenta.png \
   --output outputs/generated-alpha.png \
   --key ff00ff
