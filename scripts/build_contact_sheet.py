@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
-"""Build a visual contact sheet from a folder of image assets."""
+"""Build a visual contact sheet from a folder of image assets.
+
+Tool contract:
+- name: build_contact_sheet
+- purpose: turn a folder of image assets into one glanceable reference or comparison sheet
+- inputs: image directory, output path, layout options
+- outputs: contact-sheet image
+- typical next tool: prepare_agent_run.py for references, or taste-note update for generated cutouts
+"""
 
 from __future__ import annotations
 
@@ -8,6 +16,8 @@ import math
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
+
+from stylekit_common import emit_json, ok_payload
 
 
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
@@ -85,10 +95,12 @@ def main() -> int:
     parser.add_argument("--label-height", type=int, default=24)
     parser.add_argument("--background", default="e8e9e0")
     parser.add_argument("--labels", action="store_true")
+    parser.add_argument("--json", action="store_true", help="Print an agent-readable JSON response.")
     args = parser.parse_args()
 
+    paths = image_paths(args.input_dir)
     build_sheet(
-        paths=image_paths(args.input_dir),
+        paths=paths,
         output=args.output,
         cell_size=args.cell_size,
         columns=args.columns,
@@ -97,9 +109,24 @@ def main() -> int:
         labels=args.labels,
         base_dir=args.input_dir,
     )
+    if args.json:
+        emit_json(
+            ok_payload(
+                {
+                    "input_dir": str(args.input_dir),
+                    "output": str(args.output),
+                    "image_count": len(paths),
+                },
+                [
+                    {
+                        "command": "Open the contact sheet and inspect style constraints.",
+                        "why": "The next decision depends on visual alignment, not only file existence.",
+                    }
+                ],
+            )
+        )
     return 0
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

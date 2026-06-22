@@ -20,6 +20,7 @@ Human-facing use is not "be the loop yourself." The intended flow is:
 3. Run `prepare_agent_run.py`.
 4. Hand the generated `agent-brief.md` to a long-running agent.
 5. Review the generated assets and taste notes after each iteration.
+6. If the agent loses context, tell it to run `python3 scripts/next_action.py`.
 
 ## Install
 
@@ -52,6 +53,7 @@ This writes:
 Give `agent-brief.md` to an agent. It contains the files to inspect, the prompt to use, and the next commands to run after generation.
 
 For the agent-facing contract, see `AGENT.md`.
+For the full input/output diagram, see `docs/agent-first-contract.md`.
 
 ## Collect Assets
 

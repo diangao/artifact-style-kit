@@ -10,7 +10,13 @@ reference assets -> contact sheet -> prompt -> generated image -> transparent cu
 
 ## Canonical Entry Point
 
-Use `scripts/prepare_agent_run.py` first.
+Use `scripts/next_action.py` first. If there is no state file, it will tell you to create a run.
+
+```bash
+python3 scripts/next_action.py
+```
+
+To create a run:
 
 ```bash
 python3 scripts/prepare_agent_run.py \
@@ -20,6 +26,29 @@ python3 scripts/prepare_agent_run.py \
 ```
 
 Then read the generated `outputs/runs/<run-name>/agent-brief.md`.
+
+## Agent-Readable Outputs
+
+All primary tools support or produce JSON output. Prefer JSON mode when chaining tools:
+
+```bash
+python3 scripts/collect_assets.py <sources> --manifest outputs/assets.json --json
+python3 scripts/build_contact_sheet.py --input-dir <dir> --output <sheet.jpg> --json
+python3 scripts/chroma_to_alpha.py --input <image.png> --output <alpha.png> --json
+python3 scripts/next_action.py --json
+```
+
+The common shape is:
+
+```json
+{
+  "status": "ok",
+  "data": {},
+  "recommended_next": [
+    { "command": "...", "why": "..." }
+  ]
+}
+```
 
 ## What To Produce
 
@@ -32,6 +61,7 @@ Each run should end with these files:
 - `comparison.jpg` — optional sheet comparing generated assets
 - `taste-notes.md` — what matches, what drifts, and next constraints
 - `run.json` — machine-readable run metadata
+- `.style-kit-state.json` — root state for resuming a run
 
 ## How To Judge A Candidate
 
@@ -68,4 +98,3 @@ When reporting back to a human, include:
 - the next prompt constraint
 
 Keep private source details out of public repos unless the human explicitly approves them.
-

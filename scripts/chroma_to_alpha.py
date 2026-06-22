@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
-"""Remove a flat chroma-key background from an image."""
+"""Remove a flat chroma-key background from an image.
+
+Tool contract:
+- name: chroma_to_alpha
+- purpose: convert a flat chroma-key generated asset into an alpha PNG
+- inputs: input image, output path, key color, threshold, feather
+- outputs: transparent PNG
+- typical next tool: build_contact_sheet.py on the cutouts directory
+"""
 
 from __future__ import annotations
 
@@ -7,6 +15,8 @@ import argparse
 from pathlib import Path
 
 from PIL import Image
+
+from stylekit_common import emit_json, ok_payload
 
 
 def parse_hex(value: str) -> tuple[int, int, int]:
@@ -44,12 +54,28 @@ def main() -> int:
     parser.add_argument("--key", default="ff00ff")
     parser.add_argument("--threshold", type=int, default=20)
     parser.add_argument("--feather", type=int, default=40)
+    parser.add_argument("--json", action="store_true", help="Print an agent-readable JSON response.")
     args = parser.parse_args()
 
     remove_key(args.input, args.output, parse_hex(args.key), args.threshold, args.feather)
+    if args.json:
+        emit_json(
+            ok_payload(
+                {
+                    "input": str(args.input),
+                    "output": str(args.output),
+                    "key": args.key,
+                },
+                [
+                    {
+                        "command": "python3 scripts/build_contact_sheet.py --input-dir <cutouts-dir> --output <run-dir>/comparison.jpg --labels --json",
+                        "why": "Compare transparent cutouts as a batch before deciding the next prompt.",
+                    }
+                ],
+            )
+        )
     return 0
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

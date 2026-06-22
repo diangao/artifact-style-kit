@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
-"""Collect image asset references from saved source files."""
+"""Collect image asset references from saved source files.
+
+Tool contract:
+- name: collect_assets
+- purpose: find image references in saved source files and optionally download them
+- inputs: source files/directories, optional base URL, include/exclude filters
+- outputs: asset URLs, optional manifest JSON, optional downloaded files
+- typical next tool: build_contact_sheet.py
+"""
 
 from __future__ import annotations
 
@@ -12,6 +20,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from urllib.parse import unquote, urljoin, urlparse
 from urllib.request import urlretrieve
+
+from stylekit_common import emit_json, ok_payload
 
 
 DEFAULT_ASSET_RE = re.compile(
@@ -111,6 +121,7 @@ def main() -> int:
     parser.add_argument("--exclude", action="append", default=[], help="Regex exclusion. May be repeated.")
     parser.add_argument("--download-dir", type=Path)
     parser.add_argument("--manifest", type=Path)
+    parser.add_argument("--json", action="store_true", help="Print an agent-readable JSON response.")
     args = parser.parse_args()
 
     try:
@@ -121,17 +132,34 @@ def main() -> int:
         parser.error(str(exc))
 
     assets = collect(args.sources, args.base_url, asset_re, includes, excludes)
-    for asset in assets:
-        print(asset.url)
-
     if args.manifest:
         write_manifest(assets, args.manifest)
     if args.download_dir:
         download_assets(assets, args.download_dir)
+
+    if args.json:
+        emit_json(
+            ok_payload(
+                {
+                    "asset_count": len(assets),
+                    "assets": [asdict(asset) for asset in assets],
+                    "manifest": str(args.manifest) if args.manifest else None,
+                    "download_dir": str(args.download_dir) if args.download_dir else None,
+                },
+                [
+                    {
+                        "command": "python3 scripts/build_contact_sheet.py --input-dir <asset-dir> --output outputs/contact-sheet.jpg --labels --json",
+                        "why": "Build a visual reference sheet from the collected assets.",
+                    }
+                ],
+            )
+        )
+    else:
+        for asset in assets:
+            print(asset.url)
 
     return 0
 
 
 if __name__ == "__main__":
     sys.exit(main())
-

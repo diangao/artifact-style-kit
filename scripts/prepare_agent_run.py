@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
-"""Prepare a self-contained style run for a human or long-running agent."""
+"""Prepare a self-contained style run for a human or long-running agent.
+
+Tool contract:
+- name: prepare_agent_run
+- purpose: create a run folder with reference sheet, prompt, taste notes, agent brief, and run metadata
+- inputs: run name, subject, reference image directory
+- outputs: outputs/runs/<run-name>/ plus .style-kit-state.json
+- typical next tool: next_action.py
+"""
 
 from __future__ import annotations
 
@@ -11,6 +19,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from build_contact_sheet import build_sheet, image_paths, parse_color
+from stylekit_common import emit_json, ok_payload, update_run_state
 
 
 @dataclass
@@ -140,6 +149,7 @@ def main() -> int:
     parser.add_argument("--cell-size", type=int, default=160)
     parser.add_argument("--background", default="e8e9e0")
     parser.add_argument("--key", default="ff00ff")
+    parser.add_argument("--state", type=Path, default=Path(".style-kit-state.json"))
     args = parser.parse_args()
 
     run_name = slugify(args.run_name)
@@ -200,10 +210,40 @@ def main() -> int:
         + "\n"
     )
 
-    print(json.dumps({"ok": True, "run": str(run_dir), "agent_brief": str(agent_brief_path)}, indent=2))
+    update_run_state(
+        run_name,
+        {
+            "iteration": 1,
+            "subject": args.subject,
+            "reference_dir": str(args.reference_dir),
+            "reference_count": len(paths),
+            "status": "prepared",
+            "files": asdict(files),
+            "recommended_next": {
+                "command": f"Read {agent_brief_path} and generate candidates from {prompt_path}.",
+                "why": "The run is prepared; the next step is image generation.",
+            },
+        },
+        args.state,
+    )
+
+    emit_json(
+        ok_payload(
+            {
+                "run": str(run_dir),
+                "agent_brief": str(agent_brief_path),
+                "state": str(args.state),
+            },
+            [
+                {
+                    "command": f"python3 scripts/next_action.py --state {args.state}",
+                    "why": "Ask the toolkit what the agent should do next.",
+                }
+            ],
+        )
+    )
     return 0
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

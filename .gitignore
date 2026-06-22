@@ -3,4 +3,5 @@ __pycache__/
 .venv/
 outputs/
 data/
-
+.style-kit-state.json
+tmp-smoke/
