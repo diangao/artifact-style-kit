@@ -6,9 +6,20 @@ Small utilities for turning a visual reference surface into an inspectable style
 2. normalize them into a manifest
 3. build contact sheets for visual comparison
 4. remove flat chroma-key backgrounds from generated cutouts
-5. keep prompt and taste notes as reviewable artifacts
+5. prepare agent-ready run folders with prompts, notes, and next actions
+6. keep prompt and taste notes as reviewable artifacts
 
 The kit is intentionally generic. It does not encode a specific artist, site, or source.
+
+## Human Quickstart
+
+Human-facing use is not "be the loop yourself." The intended flow is:
+
+1. Clone the repo.
+2. Put reference images in a folder.
+3. Run `prepare_agent_run.py`.
+4. Hand the generated `agent-brief.md` to a long-running agent.
+5. Review the generated assets and taste notes after each iteration.
 
 ## Install
 
@@ -17,6 +28,30 @@ python3 -m venv .venv
 . .venv/bin/activate
 pip install -r requirements.txt
 ```
+
+## Prepare An Agent Run
+
+```bash
+mkdir -p data/reference-assets
+# put reference PNG/JPG/WebP files in data/reference-assets
+
+python3 scripts/prepare_agent_run.py \
+  --run-name mango \
+  --subject "one ripe mango with a small green leaf" \
+  --reference-dir data/reference-assets
+```
+
+This writes:
+
+- `outputs/runs/mango/contact-sheet.jpg`
+- `outputs/runs/mango/prompt.txt`
+- `outputs/runs/mango/taste-notes.md`
+- `outputs/runs/mango/agent-brief.md`
+- `outputs/runs/mango/run.json`
+
+Give `agent-brief.md` to an agent. It contains the files to inspect, the prompt to use, and the next commands to run after generation.
+
+For the agent-facing contract, see `AGENT.md`.
 
 ## Collect Assets
 
@@ -68,4 +103,3 @@ source assets -> contact sheet -> prompt recipe -> generation -> contact sheet c
 ```
 
 Keep prompts in `prompts/` and comparisons in `outputs/` so each iteration can be reviewed.
-
