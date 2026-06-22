@@ -82,6 +82,7 @@ python3 scripts/prepare_agent_run.py \
 
 For the agent-facing contract, see `AGENT.md`.
 For the full input/output diagram, see `docs/agent-first-contract.md`.
+For the planned human runtime UI, see `docs/human-runtime-ui-contract.md`.
 
 ## Collect Assets
 
@@ -146,3 +147,9 @@ source assets -> contact sheet -> prompt recipe -> generation -> contact sheet c
 Keep prompts in `prompts/` and comparisons in `outputs/` so each iteration can be reviewed.
 
 The v1 stop rule is deliberately bounded: run at most `--max-iterations` attempts, default `5`, or stop earlier when a human approves a candidate. Numeric drift scoring can be added later, but the first contract should not fake objectivity.
+
+## Planned Human Runtime UI
+
+The next layer should let a user choose a local agent runtime, recommend Codex when available, enter one source URL, and review artifacts after each iteration. Once a candidate is approved, that run becomes the locked style context for generating more objects or images.
+
+That frontend should consume the same CLI + JSON + filesystem contract instead of introducing a separate hidden workflow.
