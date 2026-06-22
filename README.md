@@ -13,7 +13,17 @@ The kit is intentionally generic. It does not encode a specific artist, site, or
 
 ## Human Quickstart
 
-Human-facing use is not "be the loop yourself." The intended flow is:
+The cleanest use is to hand an agent this repo link, one source URL, and one target:
+
+```text
+Use this kit: https://github.com/diangao/artifact-style-kit
+Source URL: https://example.com/style-source
+Target: one ripe mango with a small green leaf
+```
+
+The agent should clone the repo, read `AGENTS.md`, prepare the run, generate candidates, and show you each iteration for approval.
+
+If you are running the toolkit yourself, the underlying flow is:
 
 1. Clone the repo.
 2. Give it one source URL and one target asset.
@@ -80,7 +90,7 @@ python3 scripts/prepare_agent_run.py \
   --reference-dir data/reference-assets
 ```
 
-For the agent-facing contract, see `AGENT.md`.
+For the agent-facing contract, see `AGENTS.md`.
 For the full input/output diagram, see `docs/agent-first-contract.md`.
 For the planned human runtime UI, see `docs/human-runtime-ui-contract.md`.
 
