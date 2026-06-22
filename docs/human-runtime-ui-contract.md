@@ -4,6 +4,14 @@ The human-facing layer should be another consumer of the same agent-first toolki
 
 It should not replace the CLI primitives. It should help a user run them through an installed local agent runtime and make each iteration visible.
 
+Current local entry point:
+
+```bash
+python3 scripts/stylekit_ui.py
+```
+
+This starts a local browser UI backed by the existing scripts and `.style-kit-state.json`.
+
 ## Intended Flow
 
 ```text
@@ -59,7 +67,7 @@ The kit should not require one specific runtime.
 
 ## Runtime Detection
 
-The first implementation can use a small launcher that checks for common local agent CLIs on `PATH`.
+The first implementation uses a small launcher that checks for common local agent CLIs on `PATH`.
 
 Suggested detection order:
 
@@ -99,19 +107,19 @@ The UI should display:
 - `taste-notes.md`
 - current recommended next action
 
-For v1, native OS preview is enough:
+For v1, the bundled local browser UI displays the main artifacts directly. Native OS preview remains a valid fallback:
 
 - macOS: `open <artifact-path>`
 - Linux: `xdg-open <artifact-path>`
 - Windows: `start <artifact-path>`
 
-A dedicated browser frontend can come later. The first human loop only needs a reliable way to show the latest generated or comparison artifact and ask: close enough, retry, or add correction?
+Richer browser orchestration can come later. The first human loop only needs a reliable way to show the latest generated or comparison artifact and ask: close enough, retry, or add correction?
 
 ## Approval And Locking
 
 A style is locked when a human approves a candidate.
 
-The launcher should write a `locked_style` block into `.style-kit-state.json`.
+The launcher writes a `locked_style` block into `.style-kit-state.json`.
 
 The locked context should include:
 
@@ -150,14 +158,16 @@ style-kit generate-locked "watermelon slice"
 
 That command should read `locked_style`, create a new run, and preserve the same reference sheet and prompt constraints.
 
+## Current Limits
+
+The first UI pass does not directly drive a long-running agent runtime yet. It prepares the run, shows the generated agent brief and next action, visualizes artifacts as they appear on disk, and persists approval. Runtime execution still happens through the selected agent reading `agent-brief.md`.
+
 ## Non-Goals For The CLI Kit
 
 The current toolkit does not:
 
 - ship a managed long-running agent
 - require a specific agent runtime
-- provide a web server
-- provide a visual approval UI
 - claim automatic taste scoring
 
 Those are frontend/runtime orchestration responsibilities layered on top of this contract.

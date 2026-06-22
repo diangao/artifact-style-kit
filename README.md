@@ -23,6 +23,14 @@ Target: one ripe mango with a small green leaf
 
 The agent should clone the repo, read `AGENTS.md`, prepare the run, generate candidates, and show you each iteration for approval.
 
+To run the local visual loop yourself:
+
+```bash
+python3 scripts/stylekit_ui.py
+```
+
+Then open the printed localhost URL. The UI detects local agent runtimes, recommends Codex when available, prepares a URL-in run, displays the contact sheet and candidates, and writes `locked_style` to `.style-kit-state.json` when you approve a candidate.
+
 If you are running the toolkit yourself, the underlying flow is:
 
 1. Clone the repo.
@@ -158,8 +166,8 @@ Keep prompts in `prompts/` and comparisons in `outputs/` so each iteration can b
 
 The v1 stop rule is deliberately bounded: run at most `--max-iterations` attempts, default `5`, or stop earlier when a human approves a candidate. Numeric drift scoring can be added later, but the first contract should not fake objectivity.
 
-## Planned Human Runtime UI
+## Human Runtime UI
 
-The next layer should let a user choose a local agent runtime, recommend Codex when available, enter one source URL, and review artifacts after each iteration. Once a candidate is approved, that run becomes the locked style context for generating more objects or images.
+The local UI lets a user choose a local agent runtime, enter one source URL, and review artifacts after each iteration. It recommends Codex when available. Once a candidate is approved, that run becomes the locked style context for generating more objects or images.
 
 That frontend should consume the same CLI + JSON + filesystem contract instead of introducing a separate hidden workflow.
