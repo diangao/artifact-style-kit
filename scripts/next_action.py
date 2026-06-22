@@ -28,10 +28,18 @@ def find_pngs(path: str | None) -> list[Path]:
 
 def recommend(run: dict) -> dict[str, str]:
     files = run.get("files", {})
+    iteration = int(run.get("iteration", 1))
+    max_iterations = int(run.get("max_iterations", 5))
     generated = find_pngs(files.get("generated_dir"))
     cutouts = find_pngs(files.get("cutouts_dir"))
     run_dir = Path(files.get("run_dir", "outputs/runs/current"))
     comparison = run_dir / "comparison.jpg"
+
+    if iteration > max_iterations:
+        return {
+            "command": f"Stop iteration and update {files.get('taste_notes')} with best candidate plus remaining drift.",
+            "why": f"Run iteration {iteration} is beyond max_iterations {max_iterations}.",
+        }
 
     if not generated:
         return {
@@ -69,8 +77,8 @@ def main() -> int:
     current_run = state.get("current_run")
     run = state.get("runs", {}).get(current_run, {}) if current_run else {}
     action = recommend(run) if run else {
-        "command": "python3 scripts/prepare_agent_run.py --run-name <name> --subject <subject> --reference-dir <reference-dir>",
-        "why": "No current run exists in state.",
+        "command": "python3 scripts/prepare_agent_run.py --run-name <name> --subject <subject> --source-url <url>",
+        "why": "No current run exists in state. Start from one source URL and one target subject.",
     }
 
     emit_json(

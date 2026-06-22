@@ -4,14 +4,14 @@ This kit treats the agent as the primary user.
 
 ```text
 INPUTS
-  reference_assets/        # images or captured source assets
-  target.json              # subject, count, constraints
+  source_url               # one link for style reference discovery
+  target.json              # subject, count, constraints, max_iterations
   .style-kit-state.json    # current iteration, previous outputs, drift notes
 
         v
 
 STYLE KIT TOOLS
-  collect_assets.py        -> assets.json
+  collect_assets.py        -> reference-assets/ + assets.json
   build_contact_sheet.py   -> contact-sheet.jpg
   prepare_agent_run.py     -> prompt.txt + agent-brief.md + run.json
   chroma_to_alpha.py       -> transparent cutouts
@@ -21,6 +21,8 @@ STYLE KIT TOOLS
 
 OUTPUTS
   outputs/runs/<run>/
+    reference-assets/
+    assets.json
     contact-sheet.jpg
     prompt.txt
     generated/
@@ -40,16 +42,21 @@ AGENT LOOP
 
 Minimum inputs:
 
-- reference images in a folder
+- `source_url`
 - target subject
-- run name
 
 Optional inputs:
 
+- run name
 - target count
-- negative constraints
+- include/exclude asset filters
 - chroma-key color
+- maximum iteration count, default `5`
 - existing `.style-kit-state.json`
+
+Manual fallback:
+
+- reference images in a folder, used when URL collection is blocked, dynamic, or too noisy
 
 ## Output Contract
 
@@ -59,6 +66,12 @@ Every agent-facing tool should return or write:
 - machine-readable state
 - a recommended next action
 - enough context for the agent to continue without chat history
+
+The v1 completion gate is bounded:
+
+- stop when a human approves the candidate
+- otherwise stop after the configured maximum iteration count
+- write remaining drift rather than looping indefinitely
 
 ## State Contract
 
@@ -75,4 +88,3 @@ It records:
 - recommended next action
 
 The state file is intentionally lightweight. It is not a database and should remain easy for an agent to read in one pass.
-

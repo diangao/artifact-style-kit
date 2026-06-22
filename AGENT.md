@@ -5,7 +5,7 @@ This repository is an agent-facing toolkit for visual style runs.
 Your job is not only to run scripts. Your job is to keep the loop inspectable:
 
 ```text
-reference assets -> contact sheet -> prompt -> generated image -> transparent cutout -> comparison -> taste notes -> next prompt
+source URL -> reference assets -> contact sheet -> prompt -> generated image -> transparent cutout -> comparison -> taste notes -> next prompt
 ```
 
 ## Canonical Entry Point
@@ -22,17 +22,26 @@ To create a run:
 python3 scripts/prepare_agent_run.py \
   --run-name <short-run-name> \
   --subject "<object or asset to generate>" \
-  --reference-dir <folder-with-reference-images>
+  --source-url <url-with-style-reference-assets>
 ```
 
 Then read the generated `outputs/runs/<run-name>/agent-brief.md`.
+
+If URL collection fails because the page is blocked, dynamic, or too noisy, rerun with:
+
+```bash
+python3 scripts/prepare_agent_run.py \
+  --run-name <short-run-name> \
+  --subject "<object or asset to generate>" \
+  --reference-dir <folder-with-reference-images>
+```
 
 ## Agent-Readable Outputs
 
 All primary tools support or produce JSON output. Prefer JSON mode when chaining tools:
 
 ```bash
-python3 scripts/collect_assets.py <sources> --manifest outputs/assets.json --json
+python3 scripts/collect_assets.py --source-url <url> --manifest outputs/assets.json --download-dir outputs/assets --json
 python3 scripts/build_contact_sheet.py --input-dir <dir> --output <sheet.jpg> --json
 python3 scripts/chroma_to_alpha.py --input <image.png> --output <alpha.png> --json
 python3 scripts/next_action.py --json
@@ -54,6 +63,8 @@ The common shape is:
 
 Each run should end with these files:
 
+- `reference-assets/` — downloaded reference images
+- `assets.json` — collected source asset manifest
 - `contact-sheet.jpg` — reference assets in one glanceable sheet
 - `prompt.txt` — the current prompt used for generation
 - `generated/` — generated candidates, if any
@@ -76,6 +87,18 @@ Check:
 - palette: is saturation and contrast aligned?
 - edge treatment: does it feel like the same kind of asset?
 - background contract: is it removable or already transparent?
+
+## Stop Rule
+
+Do not run an infinite refinement loop.
+
+The v1 success gate is:
+
+- stop early if a human approves a candidate
+- otherwise stop after the run's `max_iterations`, default `5`
+- save the best candidate and write the remaining drift in `taste-notes.md`
+
+Do not invent a numeric drift score unless a real judge exists in the run.
 
 ## Tool Output Contract
 

@@ -1,8 +1,8 @@
 # artifact-style-kit
 
-Small utilities for turning a visual reference surface into an inspectable style pipeline:
+Small utilities for turning a visual reference URL into an inspectable, agent-callable style pipeline:
 
-1. collect asset URLs or local paths from saved source files
+1. collect image assets from one URL or saved source files
 2. normalize them into a manifest
 3. build contact sheets for visual comparison
 4. remove flat chroma-key backgrounds from generated cutouts
@@ -16,9 +16,9 @@ The kit is intentionally generic. It does not encode a specific artist, site, or
 Human-facing use is not "be the loop yourself." The intended flow is:
 
 1. Clone the repo.
-2. Put reference images in a folder.
+2. Give it one source URL and one target asset.
 3. Run `prepare_agent_run.py`.
-4. Hand the generated `agent-brief.md` to a long-running agent.
+4. Hand the generated `agent-brief.md` to any long-running agent runtime.
 5. Review the generated assets and taste notes after each iteration.
 6. If the agent loses context, tell it to run `python3 scripts/next_action.py`.
 
@@ -33,6 +33,44 @@ pip install -r requirements.txt
 ## Prepare An Agent Run
 
 ```bash
+python3 scripts/prepare_agent_run.py \
+  --run-name mango \
+  --subject "one ripe mango with a small green leaf" \
+  --source-url https://example.com \
+  --include "/assets/"
+```
+
+This writes:
+
+- `outputs/runs/mango/reference-assets/`
+- `outputs/runs/mango/assets.json`
+- `outputs/runs/mango/contact-sheet.jpg`
+- `outputs/runs/mango/prompt.txt`
+- `outputs/runs/mango/taste-notes.md`
+- `outputs/runs/mango/agent-brief.md`
+- `outputs/runs/mango/run.json`
+- `.style-kit-state.json`
+
+Give `agent-brief.md` to an agent. It contains the files to inspect, the prompt to use, the bounded stop rule, and the next commands to run after generation.
+
+The minimum agent-facing input is:
+
+```json
+{
+  "source_url": "https://example.com",
+  "subject": "one ripe mango with a small green leaf"
+}
+```
+
+You can pass it as a file:
+
+```bash
+python3 scripts/prepare_agent_run.py --target-json target.json --include "/assets/"
+```
+
+If the page is blocked, dynamic, or the asset collector is too broad, use the manual fallback:
+
+```bash
 mkdir -p data/reference-assets
 # put reference PNG/JPG/WebP files in data/reference-assets
 
@@ -42,20 +80,21 @@ python3 scripts/prepare_agent_run.py \
   --reference-dir data/reference-assets
 ```
 
-This writes:
-
-- `outputs/runs/mango/contact-sheet.jpg`
-- `outputs/runs/mango/prompt.txt`
-- `outputs/runs/mango/taste-notes.md`
-- `outputs/runs/mango/agent-brief.md`
-- `outputs/runs/mango/run.json`
-
-Give `agent-brief.md` to an agent. It contains the files to inspect, the prompt to use, and the next commands to run after generation.
-
 For the agent-facing contract, see `AGENT.md`.
 For the full input/output diagram, see `docs/agent-first-contract.md`.
 
 ## Collect Assets
+
+Collect image references from one URL:
+
+```bash
+python3 scripts/collect_assets.py \
+  --source-url https://example.com \
+  --include "/assets/" \
+  --manifest outputs/assets.json \
+  --download-dir outputs/assets \
+  --json
+```
 
 Collect image references from saved HTML, CSS, JS, JSON, or text files:
 
@@ -105,3 +144,5 @@ source assets -> contact sheet -> prompt recipe -> generation -> contact sheet c
 ```
 
 Keep prompts in `prompts/` and comparisons in `outputs/` so each iteration can be reviewed.
+
+The v1 stop rule is deliberately bounded: run at most `--max-iterations` attempts, default `5`, or stop earlier when a human approves a candidate. Numeric drift scoring can be added later, but the first contract should not fake objectivity.
