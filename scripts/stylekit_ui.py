@@ -229,137 +229,198 @@ HTML = r"""<!doctype html>
   <style>
     :root {
       color-scheme: light;
-      --ink: #18221f;
-      --muted: #66736f;
+      --ink: #171f1c;
+      --muted: #69736f;
       --line: #d9ded8;
       --paper: #f7f7f2;
       --panel: #ffffff;
-      --soft: #edf0ea;
-      --accent: #0f6f68;
-      --accent-2: #9a4d2f;
-      --ok: #1f7a4d;
-      --warn: #a75f16;
+      --soft: #eef1ec;
+      --ok: #226c4b;
       --bad: #a43434;
       font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
     * { box-sizing: border-box; }
-    body { margin: 0; background: var(--paper); color: var(--ink); }
-    button, input, textarea, select { font: inherit; }
-    .shell { min-height: 100vh; display: grid; grid-template-columns: minmax(320px, 420px) minmax(0, 1fr); }
-    aside { border-right: 1px solid var(--line); background: #fbfbf7; padding: 20px; display: flex; flex-direction: column; gap: 18px; }
-    main { padding: 20px; display: grid; gap: 18px; align-content: start; }
-    h1 { margin: 0; font-size: 20px; letter-spacing: 0; }
-    h2 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: 0; color: var(--muted); }
-    label { display: grid; gap: 6px; font-size: 12px; color: var(--muted); }
-    input, textarea { width: 100%; border: 1px solid var(--line); background: white; color: var(--ink); border-radius: 6px; padding: 10px 11px; min-height: 40px; }
-    textarea { min-height: 70px; resize: vertical; }
-    button { border: 1px solid var(--line); background: white; color: var(--ink); border-radius: 6px; padding: 9px 11px; cursor: pointer; }
-    button.primary { background: var(--ink); color: white; border-color: var(--ink); }
-    button:disabled { opacity: .5; cursor: not-allowed; }
-    .stack { display: grid; gap: 10px; }
-    .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-    .runtime { display: flex; flex-wrap: wrap; gap: 8px; }
-    .runtime button { padding: 7px 9px; }
-    .runtime button.selected { border-color: var(--accent); color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
-    .runtime button.unavailable { color: var(--muted); background: var(--soft); }
-    .status { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 12px; display: grid; gap: 8px; }
-    .pill { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; padding: 5px 8px; color: var(--muted); background: white; font-size: 12px; }
-    .pill.ok { color: var(--ok); border-color: #bed8ca; }
-    .pill.warn { color: var(--warn); border-color: #ead2b5; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
-    .panel { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 14px; min-width: 0; }
-    .artifact { border: 1px solid var(--line); background: #fdfdf9; border-radius: 8px; overflow: hidden; display: grid; gap: 8px; }
-    .artifact img { width: 100%; aspect-ratio: 4 / 3; object-fit: contain; background: #eef1ec; display: block; }
-    .artifact footer { padding: 0 10px 10px; display: flex; justify-content: space-between; gap: 8px; align-items: center; }
-    .artifact code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
-    pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; background: #f1f2ec; border: 1px solid var(--line); border-radius: 7px; padding: 12px; max-height: 420px; overflow: auto; }
-    .hero-img { width: 100%; max-height: 360px; object-fit: contain; border: 1px solid var(--line); border-radius: 8px; background: #eef1ec; }
-    .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
-    .tabs button.active { border-color: var(--accent); color: var(--accent); }
-    .empty { color: var(--muted); border: 1px dashed var(--line); border-radius: 8px; padding: 16px; background: #fbfbf7; }
-    .error { border-color: #e0b4b4; background: #fff7f7; color: var(--bad); }
-    .fine { color: var(--muted); font-size: 12px; line-height: 1.45; }
-    a { color: var(--accent); text-decoration: none; }
-    @media (max-width: 900px) {
-      .shell { grid-template-columns: 1fr; }
-      aside { border-right: 0; border-bottom: 1px solid var(--line); }
-      main { padding: 14px; }
+    body { margin: 0; min-height: 100vh; background: var(--paper); color: var(--ink); }
+    button, input, textarea { font: inherit; }
+    .app { width: min(920px, calc(100vw - 32px)); margin: 0 auto; padding: 38px 0 56px; }
+    header { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 34px; }
+    h1 { margin: 0; font-size: 20px; font-weight: 650; letter-spacing: 0; }
+    .step-count { color: var(--muted); font-size: 13px; }
+    .screen { display: none; }
+    .screen.active { display: block; }
+    .prompt { max-width: 720px; margin: 0 auto; display: grid; gap: 18px; }
+    .prompt h2 { margin: 0; font-size: clamp(34px, 6vw, 68px); line-height: 1.02; font-weight: 620; letter-spacing: 0; }
+    .field { display: grid; gap: 10px; }
+    label { color: var(--muted); font-size: 13px; }
+    input, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: white;
+      color: var(--ink);
+      padding: 16px 17px;
+      font-size: 18px;
+      outline: none;
+      box-shadow: 0 1px 0 rgba(0,0,0,.02);
+    }
+    textarea { min-height: 112px; resize: vertical; }
+    input:focus, textarea:focus { border-color: #aeb8b2; box-shadow: 0 0 0 3px rgba(23,31,28,.06); }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    button {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: white;
+      color: var(--ink);
+      min-height: 44px;
+      padding: 0 16px;
+      cursor: pointer;
+    }
+    button.primary { background: var(--ink); border-color: var(--ink); color: white; }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    .message { min-height: 22px; color: var(--muted); font-size: 13px; }
+    .message.error { color: var(--bad); }
+    .review { display: grid; gap: 18px; }
+    .review-head { display: flex; justify-content: space-between; align-items: end; gap: 16px; flex-wrap: wrap; }
+    .review-head h2 { margin: 0; font-size: 24px; line-height: 1.15; }
+    .artifact-main {
+      border: 1px solid var(--line);
+      background: white;
+      border-radius: 8px;
+      min-height: 520px;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+    }
+    .artifact-main img { width: 100%; max-height: 76vh; object-fit: contain; display: block; background: var(--soft); }
+    .empty {
+      width: min(520px, 100%);
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      padding: 28px;
+      color: var(--muted);
+      line-height: 1.45;
+      background: #fbfbf7;
+      text-align: center;
+    }
+    .thumbs { display: flex; gap: 10px; flex-wrap: wrap; }
+    .thumb {
+      width: 96px;
+      height: 76px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: white;
+      padding: 0;
+      overflow: hidden;
+    }
+    .thumb.selected { border-color: var(--ink); box-shadow: 0 0 0 2px var(--ink); }
+    .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    details {
+      border-top: 1px solid var(--line);
+      padding-top: 16px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    summary { cursor: pointer; color: var(--ink); margin-bottom: 12px; }
+    .debug { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+    .debug-box { border: 1px solid var(--line); border-radius: 8px; background: white; padding: 12px; min-width: 0; }
+    .debug-box h3 { margin: 0 0 8px; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0; }
+    pre {
+      margin: 0;
+      max-height: 280px;
+      overflow: auto;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: var(--ink);
+    }
+    a { color: inherit; }
+    @media (max-width: 700px) {
+      .app { width: min(100vw - 24px, 920px); padding-top: 24px; }
+      header { margin-bottom: 24px; }
+      .artifact-main { min-height: 360px; }
+      .prompt h2 { font-size: 38px; }
     }
   </style>
 </head>
 <body>
-  <div class="shell">
-    <aside>
-      <header class="stack">
-        <h1>artifact-style-kit</h1>
-        <div class="fine">One style URL in, visible artifact loop out. The UI stays on the same CLI + JSON + filesystem contract.</div>
-      </header>
+  <div class="app">
+    <header>
+      <h1>artifact-style-kit</h1>
+      <div id="stepCount" class="step-count">Step 1 of 2</div>
+    </header>
 
-      <section class="stack">
-        <h2>Runtime</h2>
-        <div id="runtimes" class="runtime"></div>
-        <div class="fine">Codex is recommended when available. Runtime launching is still agent-managed; this UI prepares and visualizes the loop.</div>
-      </section>
+    <section id="screenSource" class="screen active">
+      <div class="prompt">
+        <h2>Paste the style source.</h2>
+        <div class="field">
+          <label for="sourceUrl">Source URL</label>
+          <input id="sourceUrl" placeholder="https://example.com/style-source" autocomplete="off" autofocus>
+        </div>
+        <div class="actions">
+          <button id="toTarget" class="primary">Next</button>
+        </div>
+        <div id="messageSource" class="message"></div>
+      </div>
+    </section>
 
-      <section class="stack">
-        <h2>New Run</h2>
-        <label>Source URL <input id="sourceUrl" placeholder="https://example.com/style-source"></label>
-        <label>Target <textarea id="subject" placeholder="one small object or image request"></textarea></label>
-        <label>Run name <input id="runName" placeholder="optional"></label>
-        <label>Include asset filter <input id="include" placeholder="/assets/"></label>
-        <label>Max iterations <input id="maxIterations" type="number" min="1" max="20" value="5"></label>
-        <button id="prepare" class="primary">Prepare Run</button>
-      </section>
+    <section id="screenTarget" class="screen">
+      <div class="prompt">
+        <h2>Describe what to make.</h2>
+        <div class="field">
+          <label for="subject">Target</label>
+          <textarea id="subject" placeholder="one small object or image request"></textarea>
+        </div>
+        <div class="actions">
+          <button id="backToSource">Back</button>
+          <button id="prepare" class="primary">Start</button>
+        </div>
+        <div id="messageTarget" class="message"></div>
+      </div>
+    </section>
 
-      <section id="lockedPanel" class="status"></section>
-    </aside>
-
-    <main>
-      <section id="message"></section>
-      <section class="panel">
-        <div class="row" style="justify-content: space-between;">
+    <section id="screenReview" class="screen">
+      <div class="review">
+        <div class="review-head">
           <div>
-            <h2>Current Run</h2>
-            <div id="runMeta" class="fine"></div>
+            <div id="runMeta" class="step-count"></div>
+            <h2 id="reviewTitle">Review the result.</h2>
           </div>
-          <button id="refresh">Refresh</button>
+          <div class="actions">
+            <button id="newRun">New run</button>
+            <button id="refresh">Refresh</button>
+            <button id="approve" class="primary">Looks right</button>
+          </div>
         </div>
-      </section>
+        <div id="artifactMain" class="artifact-main"></div>
+        <div id="thumbs" class="thumbs"></div>
+        <div id="messageReview" class="message"></div>
 
-      <section class="grid">
-        <div class="panel">
-          <h2>Reference Sheet</h2>
-          <div id="contactSheet"></div>
-        </div>
-        <div class="panel">
-          <h2>Comparison</h2>
-          <div id="comparison"></div>
-        </div>
-      </section>
-
-      <section class="panel">
-        <h2>Candidates</h2>
-        <div id="candidates" class="grid"></div>
-      </section>
-
-      <section class="panel">
-        <h2>Run Files</h2>
-        <div class="tabs">
-          <button data-tab="prompt" class="active">Prompt</button>
-          <button data-tab="taste_notes">Taste Notes</button>
-          <button data-tab="agent_brief">Agent Brief</button>
-          <button data-tab="next">Next Action</button>
-        </div>
-        <pre id="textPane"></pre>
-      </section>
-    </main>
+        <details>
+          <summary>Debug details</summary>
+          <div class="debug">
+            <div class="debug-box">
+              <h3>Next action</h3>
+              <pre id="nextAction"></pre>
+            </div>
+            <div class="debug-box">
+              <h3>Agent brief</h3>
+              <pre id="agentBrief"></pre>
+            </div>
+            <div class="debug-box">
+              <h3>Contact sheet</h3>
+              <div id="contactSheet"></div>
+            </div>
+          </div>
+        </details>
+      </div>
+    </section>
   </div>
 
   <script>
     const $ = (id) => document.getElementById(id);
     let view = null;
-    let selectedRuntime = 'codex';
-    let activeTab = 'prompt';
+    let selectedCandidate = null;
+    let pendingSource = '';
 
     function fileUrl(path) {
       return `/api/file?path=${encodeURIComponent(path)}`;
@@ -371,91 +432,29 @@ HTML = r"""<!doctype html>
         ...options
       });
       const data = await res.json();
-      if (!res.ok || data.status === 'error') {
-        throw new Error(data.error || 'request failed');
-      }
+      if (!res.ok || data.status === 'error') throw new Error(data.error || 'request failed');
       return data;
     }
 
-    function setMessage(text, kind = '') {
-      $('message').innerHTML = text ? `<div class="status ${kind}">${text}</div>` : '';
-    }
-
-    function renderRuntimes() {
-      const runtimes = view.runtimes || [];
-      $('runtimes').innerHTML = runtimes.map((runtime) => {
-        const cls = [
-          runtime.name === selectedRuntime ? 'selected' : '',
-          runtime.available ? '' : 'unavailable'
-        ].join(' ');
-        const label = `${runtime.name}${runtime.recommended ? ' · recommended' : ''}${runtime.available ? '' : ' · missing'}`;
-        return `<button class="${cls}" data-runtime="${runtime.name}">${label}</button>`;
-      }).join('');
-      document.querySelectorAll('[data-runtime]').forEach((button) => {
-        button.onclick = () => {
-          selectedRuntime = button.dataset.runtime;
-          renderRuntimes();
-        };
+    function screen(name) {
+      ['Source', 'Target', 'Review'].forEach((item) => {
+        $(`screen${item}`).classList.toggle('active', item === name);
       });
+      $('stepCount').textContent = name === 'Source' ? 'Step 1 of 2' : name === 'Target' ? 'Step 2 of 2' : 'Review';
     }
 
-    function renderLocked() {
-      const locked = view.state?.locked_style;
-      if (!locked) {
-        $('lockedPanel').innerHTML = '<span class="pill warn">No locked style</span><div class="fine">Approve a cutout candidate to persist locked_style.</div>';
-        return;
-      }
-      $('lockedPanel').innerHTML = `
-        <span class="pill ok">Style locked</span>
-        <div class="mono">${locked.run_name || ''}</div>
-        <div class="fine">${locked.subject || ''}</div>
-        ${locked.accepted_candidate ? `<a href="${fileUrl(locked.accepted_candidate)}" target="_blank">accepted candidate</a>` : ''}
-      `;
+    function setMessage(id, text, isError = false) {
+      $(id).textContent = text || '';
+      $(id).classList.toggle('error', Boolean(isError));
     }
 
-    function renderMeta() {
-      const run = view.run || {};
-      const runName = view.current_run || 'none';
-      $('runMeta').innerHTML = `
-        <span class="pill">${runName}</span>
-        <span class="pill">${run.status || 'no status'}</span>
-        <span class="pill">${run.reference_count || 0} refs</span>
-        <span class="pill">max ${run.max_iterations || 5}</span>
-        <div style="margin-top: 8px;">${run.source_url ? `<a href="${run.source_url}" target="_blank">${run.source_url}</a>` : 'No source URL yet.'}</div>
-      `;
+    function candidates() {
+      return [...(view?.artifacts?.cutouts || []), ...(view?.artifacts?.generated || [])];
     }
 
-    function renderImageSlot(id, path) {
-      $(id).innerHTML = path
-        ? `<a href="${fileUrl(path)}" target="_blank"><img class="hero-img" src="${fileUrl(path)}" alt="${path}"></a><div class="fine mono" style="margin-top: 8px;">${path}</div>`
-        : '<div class="empty">No file yet.</div>';
-    }
-
-    function renderCandidates() {
-      const candidates = [...(view.artifacts?.cutouts || []), ...(view.artifacts?.generated || [])];
-      if (!candidates.length) {
-        $('candidates').innerHTML = '<div class="empty">No generated candidates yet. Hand the agent brief to the selected runtime and refresh after it writes images.</div>';
-        return;
-      }
-      $('candidates').innerHTML = candidates.map((item) => `
-        <article class="artifact">
-          <a href="${fileUrl(item.path)}" target="_blank"><img src="${fileUrl(item.path)}" alt="${item.name}"></a>
-          <footer>
-            <code>${item.name}</code>
-            <button data-lock="${item.path}">Approve</button>
-          </footer>
-        </article>
-      `).join('');
-      document.querySelectorAll('[data-lock]').forEach((button) => {
-        button.onclick = async () => {
-          await api('/api/lock', {
-            method: 'POST',
-            body: JSON.stringify({candidate_path: button.dataset.lock})
-          });
-          await refresh();
-          setMessage('Style locked from approved candidate.');
-        };
-      });
+    function bestArtifact() {
+      const items = candidates();
+      return selectedCandidate || items[0]?.path || view?.files?.comparison || view?.files?.contact_sheet || null;
     }
 
     async function loadText(path) {
@@ -464,66 +463,119 @@ HTML = r"""<!doctype html>
       return data.text;
     }
 
-    async function renderText() {
-      if (activeTab === 'next') {
-        const next = view.next_action?.recommended_next?.[0];
-        $('textPane').textContent = next
-          ? `${next.command}\n\n${next.why}`
-          : JSON.stringify(view.next_action, null, 2);
-        return;
-      }
-      $('textPane').textContent = await loadText(view.files?.[activeTab]);
-    }
-
     async function refresh() {
       view = await api('/api/state');
-      const foundCodex = (view.runtimes || []).find((runtime) => runtime.name === 'codex' && runtime.available);
-      if (foundCodex) selectedRuntime = selectedRuntime || 'codex';
-      renderRuntimes();
-      renderLocked();
-      renderMeta();
-      renderImageSlot('contactSheet', view.files?.contact_sheet);
-      renderImageSlot('comparison', view.files?.comparison);
-      renderCandidates();
-      await renderText();
+      const run = view.run || {};
+      $('runMeta').textContent = view.current_run ? `${view.current_run} · ${run.status || 'prepared'}` : 'No run yet';
+      selectedCandidate = selectedCandidate || candidates()[0]?.path || null;
+      renderMainArtifact();
+      renderThumbs();
+      await renderDebug();
+    }
+
+    function renderMainArtifact() {
+      const path = bestArtifact();
+      $('approve').disabled = !selectedCandidate;
+      if (!path) {
+        $('artifactMain').innerHTML = '<div class="empty">Run prepared. Generate a candidate, then refresh.</div>';
+        return;
+      }
+      $('artifactMain').innerHTML = `<a href="${fileUrl(path)}" target="_blank"><img src="${fileUrl(path)}" alt="${path}"></a>`;
+    }
+
+    function renderThumbs() {
+      const items = candidates();
+      if (!items.length) {
+        $('thumbs').innerHTML = '';
+        return;
+      }
+      $('thumbs').innerHTML = items.map((item) => `
+        <button class="thumb ${item.path === selectedCandidate ? 'selected' : ''}" data-candidate="${item.path}" title="${item.name}">
+          <img src="${fileUrl(item.path)}" alt="${item.name}">
+        </button>
+      `).join('');
+      document.querySelectorAll('[data-candidate]').forEach((button) => {
+        button.onclick = () => {
+          selectedCandidate = button.dataset.candidate;
+          renderMainArtifact();
+          renderThumbs();
+        };
+      });
+    }
+
+    async function renderDebug() {
+      const next = view.next_action?.recommended_next?.[0];
+      $('nextAction').textContent = next ? `${next.command}\n\n${next.why}` : JSON.stringify(view.next_action || {}, null, 2);
+      $('agentBrief').textContent = await loadText(view.files?.agent_brief);
+      $('contactSheet').innerHTML = view.files?.contact_sheet
+        ? `<a href="${fileUrl(view.files.contact_sheet)}" target="_blank"><img src="${fileUrl(view.files.contact_sheet)}" style="width:100%;border-radius:6px;border:1px solid var(--line);"></a>`
+        : 'No contact sheet yet.';
     }
 
     async function prepare() {
+      const source = pendingSource.trim();
+      const subject = $('subject').value.trim();
+      if (!subject) {
+        setMessage('messageTarget', 'Add one target prompt.', true);
+        return;
+      }
       $('prepare').disabled = true;
-      setMessage('Preparing run...');
+      setMessage('messageTarget', 'Preparing...');
       try {
-        const include = $('include').value.trim() ? [$('include').value.trim()] : [];
         await api('/api/prepare', {
           method: 'POST',
           body: JSON.stringify({
-            source_url: $('sourceUrl').value.trim(),
-            subject: $('subject').value.trim(),
-            run_name: $('runName').value.trim(),
-            include,
-            max_iterations: Number($('maxIterations').value || 5)
+            source_url: source,
+            subject,
+            max_iterations: 5
           })
         });
+        selectedCandidate = null;
         await refresh();
-        setMessage(`Run prepared. Open the agent brief in ${selectedRuntime}, then refresh as artifacts land.`);
+        screen('Review');
+        setMessage('messageReview', 'Run prepared. Refresh after the candidate lands.');
       } catch (error) {
-        setMessage(error.message, 'error');
+        setMessage('messageTarget', error.message, true);
       } finally {
         $('prepare').disabled = false;
       }
     }
 
-    document.querySelectorAll('[data-tab]').forEach((button) => {
-      button.onclick = async () => {
-        document.querySelectorAll('[data-tab]').forEach((item) => item.classList.remove('active'));
-        button.classList.add('active');
-        activeTab = button.dataset.tab;
-        await renderText();
-      };
-    });
-    $('prepare').onclick = prepare;
-    $('refresh').onclick = refresh;
+    async function lock() {
+      if (!selectedCandidate) return;
+      $('approve').disabled = true;
+      try {
+        await api('/api/lock', {
+          method: 'POST',
+          body: JSON.stringify({candidate_path: selectedCandidate})
+        });
+        await refresh();
+        setMessage('messageReview', 'Style locked.');
+      } catch (error) {
+        setMessage('messageReview', error.message, true);
+      } finally {
+        $('approve').disabled = false;
+      }
+    }
 
-    refresh().catch((error) => setMessage(error.message, 'error'));
+    $('toTarget').onclick = () => {
+      const value = $('sourceUrl').value.trim();
+      if (!value) {
+        setMessage('messageSource', 'Paste one source URL.', true);
+        return;
+      }
+      pendingSource = value;
+      setMessage('messageSource', '');
+      screen('Target');
+      $('subject').focus();
+    };
+    $('backToSource').onclick = () => screen('Source');
+    $('newRun').onclick = () => screen('Source');
+    $('prepare').onclick = prepare;
+    $('refresh').onclick = () => refresh().catch((error) => setMessage('messageReview', error.message, true));
+    $('approve').onclick = lock;
+
+    refresh().catch(() => {});
   </script>
 </body>
 </html>

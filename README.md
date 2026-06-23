@@ -29,7 +29,7 @@ To run the local visual loop yourself:
 python3 scripts/stylekit_ui.py
 ```
 
-Then open the printed localhost URL. The UI detects local agent runtimes, recommends Codex when available, prepares a URL-in run, displays the contact sheet and candidates, and writes `locked_style` to `.style-kit-state.json` when you approve a candidate.
+Then open the printed localhost URL. The main UI is deliberately two steps: paste one style source link, then describe one target asset. It prepares the run, shows the primary candidate or comparison, and writes `locked_style` to `.style-kit-state.json` when you approve a candidate. Runtime details, contact sheets, and generated briefs stay behind debug details.
 
 If you are running the toolkit yourself, the underlying flow is:
 
@@ -168,6 +168,6 @@ The v1 stop rule is deliberately bounded: run at most `--max-iterations` attempt
 
 ## Human Runtime UI
 
-The local UI lets a user choose a local agent runtime, enter one source URL, and review artifacts after each iteration. It recommends Codex when available. Once a candidate is approved, that run becomes the locked style context for generating more objects or images.
+The local UI keeps the visible path to two blanks: one source URL, then one target. It detects runtimes for the debug/runtime layer, but the main human loop is source -> target -> review. Once a candidate is approved, that run becomes the locked style context for generating more objects or images.
 
 That frontend should consume the same CLI + JSON + filesystem contract instead of introducing a separate hidden workflow.

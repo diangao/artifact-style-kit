@@ -21,25 +21,26 @@ CLONE + RUN
 
         v
 
-PICK RUNTIME
+RUNTIME READY
   launcher detects installed agent CLIs on PATH
-  recommended default: Codex
-  user can choose another runtime
+  runtime details stay hidden unless needed
 
         v
 
-ENTER URL + TARGET
+STEP 1: SOURCE
   user enters one source URL
-  user enters first target object or image request
+
+        v
+
+STEP 2: TARGET
+  user enters one target object or image request
   launcher calls prepare_agent_run.py
 
         v
 
-ITERATE + SHOW
-  agent runtime follows next_action.py
-  each iteration writes artifacts to outputs/runs/<run>/
-  launcher opens or displays the latest artifact
-  user approves, rejects, or writes correction text
+REVIEW RESULT
+  launcher shows the primary candidate, comparison, or waiting state
+  user approves, refreshes, or starts a new run
 
         v
 
@@ -50,7 +51,7 @@ STYLE LOCKED
 
 ## Runtime Choice
 
-The UI should let the user choose a runtime already available on their computer.
+The UI should detect runtimes already available on the user's computer, but runtime choice should not be the first thing the human has to think about.
 
 Recommended default:
 
@@ -63,7 +64,7 @@ Other runtimes can work if they can:
 - parse JSON stdout
 - inspect generated image artifacts
 
-The kit should not require one specific runtime.
+The kit should not require one specific runtime. Runtime choice can remain an advanced/debug detail until the launcher directly starts runtimes.
 
 ## Runtime Detection
 
@@ -75,7 +76,7 @@ Suggested detection order:
 - `claude`
 - `cursor`
 
-If Codex is found, make it the recommended default. If no known runtime is found, prompt the user to install one or enter a custom command.
+If Codex is found, make it the recommended default. If no known runtime is found, prompt the user to install one or enter a custom command only after the two-step input flow has captured the source and target.
 
 The launcher should pass the repo path and generated `agent-brief.md` to the selected runtime. It should not require a runtime-specific SDK.
 
@@ -83,10 +84,10 @@ The launcher should pass the repo path and generated `agent-brief.md` to the sel
 
 Minimum user inputs:
 
-- `source_url`: one URL that contains or references the visual style assets
-- `target`: the first object or image to produce
+- Step 1: `source_url`, one URL that contains or references the visual style assets
+- Step 2: `target`, the first object or image to produce
 
-Optional user inputs:
+Optional advanced/debug inputs:
 
 - runtime choice
 - run name
@@ -96,7 +97,14 @@ Optional user inputs:
 
 ## UI Outputs
 
-The UI should display:
+The main UI should display:
+
+- the primary generated candidate, when present
+- otherwise `comparison.jpg`, `contact-sheet.jpg`, or a clear waiting state
+- thumbnail candidate choices, when multiple candidates exist
+- approve, refresh, and new-run controls
+
+Debug details may display:
 
 - collected reference assets
 - `contact-sheet.jpg`
@@ -105,6 +113,7 @@ The UI should display:
 - transparent cutouts
 - `comparison.jpg`
 - `taste-notes.md`
+- `agent-brief.md`
 - current recommended next action
 
 For v1, the bundled local browser UI displays the main artifacts directly. Native OS preview remains a valid fallback:
@@ -113,7 +122,7 @@ For v1, the bundled local browser UI displays the main artifacts directly. Nativ
 - Linux: `xdg-open <artifact-path>`
 - Windows: `start <artifact-path>`
 
-Richer browser orchestration can come later. The first human loop only needs a reliable way to show the latest generated or comparison artifact and ask: close enough, retry, or add correction?
+Richer browser orchestration can come later. The first human loop only needs a reliable way to show the latest generated or comparison artifact and ask: close enough, refresh, or start over?
 
 ## Approval And Locking
 
@@ -160,7 +169,7 @@ That command should read `locked_style`, create a new run, and preserve the same
 
 ## Current Limits
 
-The first UI pass does not directly drive a long-running agent runtime yet. It prepares the run, shows the generated agent brief and next action, visualizes artifacts as they appear on disk, and persists approval. Runtime execution still happens through the selected agent reading `agent-brief.md`.
+The first UI pass does not directly drive a long-running agent runtime yet. It prepares the run, shows the primary review artifact, keeps the generated agent brief and next action behind debug details, visualizes artifacts as they appear on disk, and persists approval. Runtime execution still happens through an agent reading `agent-brief.md`.
 
 ## Non-Goals For The CLI Kit
 
