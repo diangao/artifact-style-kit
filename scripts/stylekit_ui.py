@@ -161,6 +161,17 @@ def sync_artifact_state(
             "command": "Review the candidate in the UI, then lock the style or loop again.",
             "why": "Generated files have landed in the run folder.",
         }
+        if run.get("source_review_status") != "confirmed":
+            updates["source_review_status"] = "confirmed"
+            source_review = files.get("source_review")
+            if source_review:
+                try:
+                    review_path = repo_path(source_review)
+                    review = load_json(review_path)
+                    review["status"] = "confirmed"
+                    save_json(review_path, review)
+                except (OSError, ValueError, json.JSONDecodeError):
+                    pass
     if updates:
         run.update(updates)
         state.setdefault("runs", {})[current_run] = run
