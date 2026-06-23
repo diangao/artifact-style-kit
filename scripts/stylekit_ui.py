@@ -1044,8 +1044,45 @@ HTML = r"""<!doctype html>
       }[char]));
     }
 
+    function candidateRenderKey(item) {
+      const rawName = item?.name || String(item?.path || '').split('/').pop() || '';
+      return rawName
+        .replace(/\.[^.]+$/, '')
+        .replace(/-alpha$/i, '')
+        .replace(/-transparent$/i, '');
+    }
+
+    function candidateSortKey(item) {
+      const key = candidateRenderKey(item);
+      const match = key.match(/(\d+)(?!.*\d)/);
+      return {
+        index: match ? Number(match[1]) : Number.MAX_SAFE_INTEGER,
+        key,
+        path: item?.path || ''
+      };
+    }
+
+    function compareCandidates(a, b) {
+      const left = candidateSortKey(a);
+      const right = candidateSortKey(b);
+      if (left.index !== right.index) return left.index - right.index;
+      const byKey = left.key.localeCompare(right.key, undefined, { numeric: true, sensitivity: 'base' });
+      if (byKey) return byKey;
+      return left.path.localeCompare(right.path, undefined, { numeric: true, sensitivity: 'base' });
+    }
+
     function candidates() {
-      return [...(view?.artifacts?.cutouts || []), ...(view?.artifacts?.generated || [])];
+      const byRender = new Map();
+      const generated = [...(view?.artifacts?.generated || [])].sort(compareCandidates);
+      const cutouts = [...(view?.artifacts?.cutouts || [])].sort(compareCandidates);
+      for (const item of generated) {
+        byRender.set(candidateRenderKey(item), { ...item, candidate_kind: 'generated' });
+      }
+      for (const item of cutouts) {
+        const key = candidateRenderKey(item);
+        byRender.set(key, { ...item, candidate_kind: 'transparent' });
+      }
+      return [...byRender.values()].sort(compareCandidates);
     }
 
     function lockedStyles() {
