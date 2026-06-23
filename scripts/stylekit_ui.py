@@ -680,6 +680,13 @@ HTML = r"""<!doctype html>
       color: var(--muted);
       font-size: 13px;
     }
+    .style-lock {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
     .style-name {
       width: 190px;
       min-height: 44px;
@@ -965,7 +972,10 @@ HTML = r"""<!doctype html>
             </label>
             <button id="startRuntime" class="primary">Start runtime</button>
             <button id="loopAgain">Loop again</button>
-            <input id="styleName" class="style-name" placeholder="Style name">
+            <label id="styleLock" class="style-lock" for="styleName">
+              Name
+              <input id="styleName" class="style-name" placeholder="e.g. raft pixel daisy">
+            </label>
             <button id="approve" class="primary">Lock style</button>
           </div>
         </div>
@@ -1267,7 +1277,7 @@ HTML = r"""<!doctype html>
       $('loopAgain').disabled = !path || busy;
       $('loopAgain').classList.toggle('loading', Boolean(path && busy));
       $('loopAgain').innerHTML = path && busy ? '<span class="spinner"></span> Regenerating...' : 'Loop again';
-      $('styleName').hidden = !path;
+      $('styleLock').hidden = !path;
       $('styleName').disabled = !path || busy;
       $('newRun').disabled = busy;
       if (path && $('styleName').dataset.run !== view.current_run) {
@@ -1441,17 +1451,29 @@ HTML = r"""<!doctype html>
 
     async function lock() {
       if (!selectedCandidate) return;
+      const styleName = $('styleName').value.trim();
+      if (!styleName) {
+        setMessage('messageReview', 'Name this style before locking it.', true);
+        $('styleName').focus();
+        return;
+      }
       $('approve').disabled = true;
       try {
-        await api('/api/lock', {
+        const data = await api('/api/lock', {
           method: 'POST',
           body: JSON.stringify({
             candidate_path: selectedCandidate,
-            style_name: $('styleName').value.trim()
+            style_name: styleName
           })
         });
         await refresh();
-        setMessage('messageReview', 'Style locked.');
+        screen('Source');
+        $('sourceUrl').value = '';
+        pendingSource = '';
+        pendingStyleId = '';
+        const lockedName = data.locked_style?.name || styleName;
+        setMessage('messageReview', '');
+        setMessage('messageSource', `Saved style "${lockedName}".`);
       } catch (error) {
         setMessage('messageReview', error.message, true);
       } finally {
