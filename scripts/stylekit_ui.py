@@ -84,6 +84,42 @@ def image_files(value: str | None) -> list[dict[str, str]]:
     return [{"name": item.name, "path": rel(item)} for item in paths]
 
 
+def default_source_review(run: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "status": "draft",
+        "subject": run.get("subject"),
+        "source_url": run.get("source_url") or "manual reference folder",
+        "review_goal": "Confirm that the extracted elements/contact sheet are the right source evidence.",
+        "ignored_reference_assets": [],
+        "missing_reference_notes": "",
+        "style_notes": "",
+    }
+
+
+def ensure_source_review(state: dict[str, Any], current_run: str | None, run: dict[str, Any]) -> dict[str, Any]:
+    if not current_run or not run:
+        return run
+    files = run.setdefault("files", {})
+    if files.get("source_review") or not files.get("contact_sheet"):
+        return run
+    run_dir = repo_path(files.get("run_dir")) if files.get("run_dir") else repo_path("outputs/runs") / current_run
+    source_review = run_dir / "source-review.json"
+    if not source_review.exists():
+        source_review.parent.mkdir(parents=True, exist_ok=True)
+        save_json(source_review, default_source_review(run))
+    files["source_review"] = rel(source_review)
+    run["source_review_status"] = "draft"
+    if not image_files(files.get("generated_dir")) and not image_files(files.get("cutouts_dir")):
+        run["status"] = "prepared"
+        run["recommended_next"] = {
+            "command": f"Review {files['source_review']} and confirm/delete/supplement extracted elements before generation.",
+            "why": "The run is prepared; the next step is validating the extracted source evidence.",
+        }
+    state.setdefault("runs", {})[current_run] = run
+    save_json(STATE_PATH, state)
+    return run
+
+
 def run_next_action() -> dict[str, Any]:
     proc = subprocess.run(
         [sys.executable, "scripts/next_action.py", "--json"],
@@ -107,6 +143,7 @@ def current_view() -> dict[str, Any]:
     state = load_json(STATE_PATH)
     current_run = state.get("current_run")
     run = state.get("runs", {}).get(current_run, {}) if current_run else {}
+    run = ensure_source_review(state, current_run, run)
     files = run.get("files", {})
     artifacts = {
         "reference_assets": image_files(files.get("reference_dir")),
@@ -115,9 +152,17 @@ def current_view() -> dict[str, Any]:
     }
     key_files = {
         key: rel(files.get(key))
-        for key in ["contact_sheet", "comparison", "prompt", "taste_notes", "agent_brief"]
+        for key in ["contact_sheet", "comparison", "source_review", "prompt", "taste_notes", "agent_brief"]
         if files.get(key) and repo_path(files.get(key)).exists()
     }
+    source_review = {}
+    if files.get("source_review"):
+        source_review_path = repo_path(files.get("source_review"))
+        if source_review_path.exists():
+            try:
+                source_review = json.loads(source_review_path.read_text())
+            except json.JSONDecodeError:
+                source_review = {"status": "invalid", "error": "source-review.json is not valid JSON"}
     return {
         "status": "ok",
         "repo": str(REPO_ROOT),
@@ -125,6 +170,7 @@ def current_view() -> dict[str, Any]:
         "state": state,
         "current_run": current_run,
         "run": run,
+        "source_review": source_review,
         "files": key_files,
         "artifacts": artifacts,
         "next_action": run_next_action(),
@@ -197,6 +243,7 @@ def lock_style(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         "subject": run.get("subject"),
         "run_name": current_run,
         "contact_sheet": rel(files.get("contact_sheet")),
+        "source_review": rel(files.get("source_review")) if files.get("source_review") else None,
         "accepted_candidate": rel(candidate_path),
         "prompt": rel(files.get("prompt")),
         "taste_notes": rel(files.get("taste_notes")),
@@ -208,6 +255,52 @@ def lock_style(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     state.setdefault("runs", {}).setdefault(current_run, {}).update({"status": "locked", "accepted_candidate": rel(candidate_path)})
     save_json(STATE_PATH, state)
     return 200, {"status": "ok", "locked_style": locked, "view": current_view()}
+
+
+def save_source_review(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+    state = load_json(STATE_PATH)
+    current_run = state.get("current_run")
+    run = state.get("runs", {}).get(current_run, {}) if current_run else {}
+    files = run.get("files", {})
+    if not run or not files.get("source_review"):
+        return nowish_error("no current source review", 404)
+
+    ignored_reference_assets = [
+        str(item).strip() for item in payload.get("ignored_reference_assets", []) if str(item).strip()
+    ]
+    missing_reference_notes = str(payload.get("missing_reference_notes", "")).strip()
+    style_notes = str(payload.get("style_notes", "")).strip()
+    review_goal = (
+        str(payload.get("review_goal", "")).strip()
+        or "Confirm that the extracted elements/contact sheet are the right source evidence."
+    )
+
+    review_path = repo_path(files.get("source_review"))
+    review = load_json(review_path) if review_path.exists() else {}
+    review.update(
+        {
+            "status": "confirmed",
+            "subject": run.get("subject"),
+            "source_url": run.get("source_url") or "manual reference folder",
+            "review_goal": review_goal,
+            "ignored_reference_assets": ignored_reference_assets,
+            "missing_reference_notes": missing_reference_notes,
+            "style_notes": style_notes,
+        }
+    )
+    save_json(review_path, review)
+    state.setdefault("runs", {}).setdefault(current_run, {}).update(
+        {
+            "source_review_status": "confirmed",
+            "status": "source_reviewed",
+            "recommended_next": {
+                "command": f"Read {files.get('agent_brief')} and generate candidates from {files.get('prompt')}.",
+                "why": "The source extraction is confirmed and no generated candidates are present yet.",
+            },
+        }
+    )
+    save_json(STATE_PATH, state)
+    return 200, {"status": "ok", "source_review": review, "view": current_view()}
 
 
 def text_payload(path_value: str | None) -> tuple[int, dict[str, Any]]:
@@ -292,6 +385,54 @@ HTML = r"""<!doctype html>
       overflow: hidden;
     }
     .artifact-main img { width: 100%; max-height: 76vh; object-fit: contain; display: block; background: var(--soft); }
+    .source-pass {
+      width: 100%;
+      min-height: 520px;
+      display: grid;
+      grid-template-columns: minmax(260px, .9fr) minmax(300px, 1.1fr);
+      gap: 18px;
+      align-items: stretch;
+      padding: 18px;
+    }
+    .source-preview, .source-editor {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfbf7;
+      min-width: 0;
+      padding: 14px;
+    }
+    .source-preview img {
+      width: 100%;
+      max-height: 300px;
+      object-fit: contain;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--soft);
+      display: block;
+      margin-bottom: 12px;
+    }
+    .source-editor { display: grid; gap: 14px; align-content: start; }
+    .source-editor h3, .source-preview h3 { margin: 0 0 10px; font-size: 13px; color: var(--muted); font-weight: 600; }
+    .asset-option input { width: auto; box-shadow: none; }
+    .asset-strip {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+      gap: 8px;
+      max-height: 180px;
+      overflow: auto;
+    }
+    .asset-option {
+      position: relative;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: white;
+      overflow: hidden;
+      min-height: 72px;
+    }
+    .asset-option img { width: 100%; height: 72px; object-fit: cover; display: block; background: var(--soft); }
+    .asset-option input { position: absolute; top: 6px; left: 6px; accent-color: var(--ink); }
+    .asset-option.dropped img { opacity: .28; filter: grayscale(1); }
+    .review-notes { min-height: 78px; font-size: 14px; padding: 10px 12px; }
     .empty {
       width: min(520px, 100%);
       border: 1px dashed var(--line);
@@ -338,6 +479,7 @@ HTML = r"""<!doctype html>
       .app { width: min(100vw - 24px, 920px); padding-top: 24px; }
       header { margin-bottom: 24px; }
       .artifact-main { min-height: 360px; }
+      .source-pass { grid-template-columns: 1fr; padding: 12px; }
       .prompt h2 { font-size: 38px; }
     }
   </style>
@@ -388,6 +530,7 @@ HTML = r"""<!doctype html>
           <div class="actions">
             <button id="newRun">New run</button>
             <button id="refresh">Refresh</button>
+            <button id="confirmSource" class="primary">Use these elements</button>
             <button id="approve" class="primary">Looks right</button>
           </div>
         </div>
@@ -405,6 +548,10 @@ HTML = r"""<!doctype html>
             <div class="debug-box">
               <h3>Agent brief</h3>
               <pre id="agentBrief"></pre>
+            </div>
+            <div class="debug-box">
+              <h3>Source review</h3>
+              <pre id="sourceReview"></pre>
             </div>
             <div class="debug-box">
               <h3>Contact sheet</h3>
@@ -448,8 +595,22 @@ HTML = r"""<!doctype html>
       $(id).classList.toggle('error', Boolean(isError));
     }
 
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      }[char]));
+    }
+
     function candidates() {
       return [...(view?.artifacts?.cutouts || []), ...(view?.artifacts?.generated || [])];
+    }
+
+    function needsSourceReview() {
+      return Boolean(view?.files?.source_review) && !candidates().length && view?.source_review?.status !== 'confirmed';
     }
 
     function selectedArtifact() {
@@ -475,14 +636,66 @@ HTML = r"""<!doctype html>
 
     function renderMainArtifact() {
       const path = selectedArtifact();
-      $('reviewTitle').textContent = path ? 'Review the result.' : 'Ready for agent generation.';
+      const needsReview = needsSourceReview();
+      $('reviewTitle').textContent = path ? 'Review the result.' : needsReview ? 'Review the extracted elements.' : 'Ready for agent generation.';
       $('approve').hidden = !path;
       $('approve').disabled = !path;
+      $('confirmSource').hidden = !needsReview;
+      $('confirmSource').disabled = !needsReview;
+      if (needsReview) {
+        renderSourceReview();
+        return;
+      }
       if (!path) {
         $('artifactMain').innerHTML = '<div class="empty">The source bundle is ready. Generate a candidate from the agent brief, then refresh.</div>';
         return;
       }
       $('artifactMain').innerHTML = `<a href="${fileUrl(path)}" target="_blank"><img src="${fileUrl(path)}" alt="${path}"></a>`;
+    }
+
+    function renderSourceReview() {
+      const review = view.source_review || {};
+      const ignored = new Set(Array.isArray(review.ignored_reference_assets) ? review.ignored_reference_assets : []);
+      const assets = view.artifacts?.reference_assets || [];
+      const sheet = view.files?.contact_sheet;
+      $('artifactMain').innerHTML = `
+        <div class="source-pass">
+          <div class="source-preview">
+            <h3>Contact sheet</h3>
+            ${sheet ? `<a href="${fileUrl(sheet)}" target="_blank"><img src="${fileUrl(sheet)}" alt="contact sheet"></a>` : '<div class="empty">No contact sheet yet.</div>'}
+            <h3>Extracted elements</h3>
+            <div class="asset-strip">
+              ${assets.map((item) => `
+                <label class="asset-option ${ignored.has(item.path) ? 'dropped' : ''}" title="${escapeHtml(item.name)}">
+                  <input type="checkbox" data-asset="${escapeHtml(item.path)}" ${ignored.has(item.path) ? '' : 'checked'}>
+                  <img src="${fileUrl(item.path)}" alt="${escapeHtml(item.name)}">
+                </label>
+              `).join('') || '<div class="empty">No reference assets.</div>'}
+            </div>
+          </div>
+          <div class="source-editor">
+            <div class="field">
+              <label for="reviewGoal">Review goal</label>
+              <textarea id="reviewGoal" class="review-notes">${escapeHtml(review.review_goal || '')}</textarea>
+            </div>
+            <div class="field">
+              <label for="missingNotes">Missing / supplemental source notes</label>
+              <textarea id="missingNotes" class="review-notes" placeholder="anything important the extractor missed">${escapeHtml(review.missing_reference_notes || '')}</textarea>
+            </div>
+            <div class="field">
+              <label for="styleNotes">Style notes for the next contract</label>
+              <textarea id="styleNotes" class="review-notes" placeholder="e.g. use these only for palette/material, not object taxonomy">${escapeHtml(review.style_notes || '')}</textarea>
+            </div>
+          </div>
+        </div>
+      `;
+      wireSourceReviewControls();
+    }
+
+    function wireSourceReviewControls() {
+      document.querySelectorAll('[data-asset]').forEach((input) => {
+        input.onchange = () => input.closest('.asset-option').classList.toggle('dropped', !input.checked);
+      });
     }
 
     function renderThumbs() {
@@ -509,6 +722,7 @@ HTML = r"""<!doctype html>
       const next = view.next_action?.recommended_next?.[0];
       $('nextAction').textContent = next ? `${next.command}\n\n${next.why}` : JSON.stringify(view.next_action || {}, null, 2);
       $('agentBrief').textContent = await loadText(view.files?.agent_brief);
+      $('sourceReview').textContent = await loadText(view.files?.source_review);
       $('contactSheet').innerHTML = view.files?.contact_sheet
         ? `<a href="${fileUrl(view.files.contact_sheet)}" target="_blank"><img src="${fileUrl(view.files.contact_sheet)}" style="width:100%;border-radius:6px;border:1px solid var(--line);"></a>`
         : 'No contact sheet yet.';
@@ -535,7 +749,7 @@ HTML = r"""<!doctype html>
         selectedCandidate = null;
         await refresh();
         screen('Review');
-        setMessage('messageReview', 'Ready for agent generation. Refresh after the candidate lands.');
+        setMessage('messageReview', 'Review the extracted elements before generation.');
       } catch (error) {
         setMessage('messageTarget', error.message, true);
       } finally {
@@ -560,6 +774,30 @@ HTML = r"""<!doctype html>
       }
     }
 
+    async function confirmSource() {
+      const ignored = [...document.querySelectorAll('[data-asset]')]
+        .filter((input) => !input.checked)
+        .map((input) => input.dataset.asset);
+      $('confirmSource').disabled = true;
+      try {
+        await api('/api/source-review', {
+          method: 'POST',
+          body: JSON.stringify({
+            review_goal: $('reviewGoal')?.value || '',
+            ignored_reference_assets: ignored,
+            missing_reference_notes: $('missingNotes')?.value || '',
+            style_notes: $('styleNotes')?.value || ''
+          })
+        });
+        await refresh();
+        setMessage('messageReview', 'Source elements confirmed. Generate a candidate from the agent brief.');
+      } catch (error) {
+        setMessage('messageReview', error.message, true);
+      } finally {
+        $('confirmSource').disabled = false;
+      }
+    }
+
     $('toTarget').onclick = () => {
       const value = $('sourceUrl').value.trim();
       if (!value) {
@@ -575,6 +813,7 @@ HTML = r"""<!doctype html>
     $('newRun').onclick = () => screen('Source');
     $('prepare').onclick = prepare;
     $('refresh').onclick = () => refresh().catch((error) => setMessage('messageReview', error.message, true));
+    $('confirmSource').onclick = confirmSource;
     $('approve').onclick = lock;
 
     refresh().catch(() => {});
@@ -654,6 +893,10 @@ class Handler(BaseHTTPRequestHandler):
             return
         if parsed.path == "/api/lock":
             status, response = lock_style(payload)
+            self.send_json(status, response)
+            return
+        if parsed.path == "/api/source-review":
+            status, response = save_source_review(payload)
             self.send_json(status, response)
             return
         self.send_json(404, {"status": "error", "error": "not found"})

@@ -35,6 +35,7 @@ class RunFiles:
     reference_dir: str
     assets_manifest: str | None
     contact_sheet: str
+    source_review: str
     prompt: str
     taste_notes: str
     agent_brief: str
@@ -69,8 +70,14 @@ def coerce_list(value: object) -> list[str]:
     return [str(value)]
 
 
-def prompt_text(subject: str, key_color: str, max_iterations: int) -> str:
-    return f"""Use the contact sheet as visual style reference. Create one small standalone visual asset: {subject}.
+def prompt_text(subject: str, key_color: str, max_iterations: int, source_review: str) -> str:
+    return f"""Use the contact sheet as visual evidence, then follow the reviewed source-element contract in `{source_review}`. Create one small standalone visual asset: {subject}.
+
+Before generation:
+- Read the source review.
+- Use the confirmed contact-sheet elements as the evidence set.
+- Treat `ignored_reference_assets` and `missing_reference_notes` as constraints.
+- If the source review is still `draft`, stop and ask for a human extraction pass before generating.
 
 Style constraints:
 - handmade object asset
@@ -95,6 +102,21 @@ Loop contract:
 - Iterate at most {max_iterations} times before stopping for review.
 - Prefer a clearly reviewable candidate over endless refinement.
 """
+
+
+def source_review_text(subject: str, source_url: str | None) -> str:
+    return json.dumps(
+        {
+            "status": "draft",
+            "subject": subject,
+            "source_url": source_url or "manual reference folder",
+            "review_goal": "Confirm that the extracted elements/contact sheet are the right source evidence.",
+            "ignored_reference_assets": [],
+            "missing_reference_notes": "",
+            "style_notes": "",
+        },
+        indent=2,
+    ) + "\n"
 
 
 def taste_notes_text(subject: str, source_url: str | None, max_iterations: int) -> str:
@@ -134,9 +156,12 @@ Stop rule: stop after {max_iterations} iterations or when a human approves a can
 ## Inspect First
 
 1. Open `{files.contact_sheet}`.
-2. Read `{files.prompt}`.
-3. Generate candidate assets using the prompt.
-4. Save generated chroma-key images in `{files.generated_dir}`.
+2. Read `{files.source_review}`.
+3. If the source review is still `draft`, stop for human extraction review.
+4. Use the confirmed elements; ignore `ignored_reference_assets` and account for `missing_reference_notes`.
+5. Read `{files.prompt}`.
+6. Generate candidate assets using the prompt.
+7. Save generated chroma-key images in `{files.generated_dir}`.
 
 ## After Generation
 
@@ -168,6 +193,8 @@ Then update `{files.taste_notes}` with:
 ## Judgment Rule
 
 Prefer visible similarity to the reference sheet over generic polish. If a candidate is prettier but less aligned, mark the drift explicitly.
+
+Do not treat the raw contact sheet as the whole spec. The source review chooses which extracted elements are valid evidence.
 
 Do not loop forever. If the candidate still drifts after {max_iterations} iterations, save the best candidate and flag the remaining drift for human review.
 """
@@ -255,6 +282,7 @@ def main() -> int:
     )
 
     prompt_path = run_dir / "prompt.txt"
+    source_review_path = run_dir / "source-review.json"
     taste_notes_path = run_dir / "taste-notes.md"
     agent_brief_path = run_dir / "agent-brief.md"
 
@@ -263,6 +291,7 @@ def main() -> int:
         reference_dir=str(reference_dir),
         assets_manifest=str(assets_manifest) if assets_manifest else None,
         contact_sheet=str(contact_sheet),
+        source_review=str(source_review_path),
         prompt=str(prompt_path),
         taste_notes=str(taste_notes_path),
         agent_brief=str(agent_brief_path),
@@ -271,7 +300,8 @@ def main() -> int:
         comparison=str(comparison),
     )
 
-    write_text(prompt_path, prompt_text(subject, args.key, max_iterations))
+    write_text(source_review_path, source_review_text(subject, source_url))
+    write_text(prompt_path, prompt_text(subject, args.key, max_iterations, str(source_review_path)))
     write_text(taste_notes_path, taste_notes_text(subject, source_url, max_iterations))
     write_text(agent_brief_path, agent_brief_text(files, subject, args.key, source_url, max_iterations))
 
@@ -288,7 +318,7 @@ def main() -> int:
                 "download_errors": download_errors,
                 "max_iterations": max_iterations,
                 "files": asdict(files),
-                "next_action": f"Read {agent_brief_path} and generate candidates from {prompt_path}.",
+                "next_action": f"Review {source_review_path} and confirm/delete/supplement extracted elements before generation.",
             },
             indent=2,
         )
@@ -307,10 +337,11 @@ def main() -> int:
             "download_errors": download_errors,
             "max_iterations": max_iterations,
             "status": "prepared",
+            "source_review_status": "draft",
             "files": asdict(files),
             "recommended_next": {
-                "command": f"Read {agent_brief_path} and generate candidates from {prompt_path}.",
-                "why": "The run is prepared; the next step is image generation.",
+                "command": f"Review {source_review_path} and confirm/delete/supplement extracted elements before generation.",
+                "why": "The run is prepared; the next step is validating the extracted source evidence.",
             },
         },
         args.state,

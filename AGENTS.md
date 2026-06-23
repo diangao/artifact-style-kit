@@ -7,7 +7,7 @@ clone the repo, prepare a run, and iterate with visible artifacts.
 Keep the loop inspectable:
 
 ```text
-source URL -> reference evidence -> contact sheet -> prompt -> generated image -> transparent cutout -> comparison -> taste notes -> next prompt
+source URL -> reference evidence -> contact sheet -> source review -> prompt -> generated image -> transparent cutout -> comparison -> taste notes -> next prompt
 ```
 
 ## Bootstrap From A Human Prompt
@@ -41,9 +41,12 @@ Do this:
    ```
 
 4. Read the generated `outputs/runs/<run-name>/agent-brief.md`.
-5. Generate candidate assets using the prompt and reference sheet.
-6. Save candidates, cutouts, comparisons, and taste notes in the run folder.
-7. Run `python3 scripts/next_action.py --json` whenever you need to resume.
+5. Review `outputs/runs/<run-name>/source-review.json`; if it is still `draft`,
+   confirm/delete/supplement the extracted elements before generation.
+6. Generate candidate assets using the prompt, reference sheet, and confirmed
+   source review.
+7. Save candidates, cutouts, comparisons, and taste notes in the run folder.
+8. Run `python3 scripts/next_action.py --json` whenever you need to resume.
 
 If URL collection fails because the page is blocked, dynamic, or too noisy, ask
 for a folder of reference images and rerun with:
@@ -61,6 +64,13 @@ structure. In that case, capture the page or component screenshots yourself,
 put those screenshots in a reference folder, and use `--reference-dir`. Note the
 non-image style cues in `taste-notes.md` so the generator does not overfit to
 only the harvested asset PNGs.
+
+The first pass should decide whether the extracted element/contact sheet
+contract is right. Do not blindly use every asset in the contact sheet. If a
+source includes irrelevant images, logos, layout fragments, or object
+categories, put them in `ignored_reference_assets` in `source-review.json`
+before generating. If the extractor missed important evidence, write it in
+`missing_reference_notes`.
 
 ## Canonical Entry Point
 
@@ -103,6 +113,7 @@ Each run should end with these files:
 - `reference-assets/` - downloaded reference images
 - `assets.json` - collected source asset manifest
 - `contact-sheet.jpg` - reference assets in one glanceable sheet
+- `source-review.json` - confirmed extracted evidence, ignored assets, and missing source notes
 - `prompt.txt` - the current prompt used for generation
 - `generated/` - generated candidates, if any
 - `cutouts/` - transparent cutouts, if any

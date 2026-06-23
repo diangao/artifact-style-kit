@@ -12,6 +12,7 @@ Tool contract:
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 from stylekit_common import emit_json, load_state, ok_payload
@@ -42,9 +43,20 @@ def recommend(run: dict) -> dict[str, str]:
         }
 
     if not generated:
+        source_review = files.get("source_review")
+        if source_review and Path(source_review).exists():
+            try:
+                review = json.loads(Path(source_review).read_text())
+            except json.JSONDecodeError:
+                review = {}
+            if review.get("status") != "confirmed":
+                return {
+                    "command": f"Review {source_review} and confirm/delete/supplement extracted elements before generation.",
+                    "why": "The source evidence is collected, but the extraction review is not confirmed yet.",
+                }
         return {
             "command": f"Read {files.get('agent_brief')} and generate candidates from {files.get('prompt')}.",
-            "why": "No generated candidates are present yet.",
+            "why": "The source extraction is confirmed and no generated candidates are present yet.",
         }
 
     if generated and not cutouts:

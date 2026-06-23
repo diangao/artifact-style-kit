@@ -38,6 +38,13 @@ STEP 2: TARGET
 
         v
 
+SOURCE EXTRACTION REVIEW
+  launcher shows the contact sheet plus extracted elements
+  user removes irrelevant elements or notes missing evidence
+  launcher saves source-review.json as confirmed
+
+        v
+
 REVIEW RESULT
   launcher shows a waiting state until a generated candidate exists
   user approves, refreshes, or starts a new run
@@ -99,15 +106,18 @@ Optional advanced/debug inputs:
 
 The main UI should display:
 
+- a first source extraction review before candidate generation
+- removable extracted elements while the source review is draft
 - the primary generated candidate, when present
 - otherwise a clear waiting state
 - thumbnail candidate choices, when multiple candidates exist
-- approve, refresh, and new-run controls
+- use these elements, approve, refresh, and new-run controls
 
 Debug details may display:
 
 - collected reference assets
 - `contact-sheet.jpg`
+- `source-review.json`
 - current `prompt.txt`
 - generated candidates
 - transparent cutouts
@@ -122,7 +132,34 @@ For v1, the bundled local browser UI displays the main artifacts directly. Nativ
 - Linux: `xdg-open <artifact-path>`
 - Windows: `start <artifact-path>`
 
-Richer browser orchestration can come later. The first human loop only needs a reliable way to show the latest generated or comparison artifact and ask: close enough, refresh, or start over?
+Richer browser orchestration can come later. The first human loop needs a
+reliable way to confirm/delete/supplement the extracted source elements before
+generation, then show the latest generated or comparison artifact and ask:
+close enough, refresh, or start over?
+
+## Source Extraction Review
+
+The first pass after source and target is not candidate approval. It answers:
+
+```text
+did the agent extract the right source elements for the contact sheet?
+```
+
+`prepare_agent_run.py` writes `source-review.json` in `draft` state. The UI
+lets a human keep or ignore extracted reference assets and add notes for
+missing evidence. When the human confirms the pass, the launcher writes:
+
+```json
+{
+  "status": "confirmed",
+  "ignored_reference_assets": ["outputs/runs/mango/reference-assets/noisy-banner.png"],
+  "missing_reference_notes": "also use the page screenshot for typography",
+  "style_notes": "use the kept elements for palette/material, not object taxonomy"
+}
+```
+
+Agents should not generate from a draft source review. They should read the
+confirmed source review together with the contact sheet and prompt.
 
 ## Approval And Locking
 
@@ -135,6 +172,7 @@ The locked context should include:
 - source URL
 - reference asset manifest
 - contact sheet
+- confirmed source review
 - accepted candidate
 - prompt that produced it
 - taste notes
@@ -149,6 +187,7 @@ Example state shape:
   "locked_style": {
     "source_url": "https://example.com",
     "contact_sheet": "outputs/runs/mango/contact-sheet.jpg",
+    "source_review": "outputs/runs/mango/source-review.json",
     "accepted_candidate": "outputs/runs/mango/cutouts/mango-alpha.png",
     "prompt": "outputs/runs/mango/prompt.txt",
     "taste_notes": "outputs/runs/mango/taste-notes.md",
@@ -169,7 +208,12 @@ That command should read `locked_style`, create a new run, and preserve the same
 
 ## Current Limits
 
-The first UI pass does not directly drive a long-running agent runtime yet. It prepares the run, shows the primary review artifact, keeps the generated agent brief and next action behind debug details, visualizes artifacts as they appear on disk, and persists approval. Runtime execution still happens through an agent reading `agent-brief.md`.
+The first UI pass does not directly drive a long-running agent runtime yet. It
+prepares the run, lets the human confirm the source extraction review, shows
+the primary review artifact once it exists, keeps the generated agent brief and
+next action behind debug details, visualizes artifacts as they appear on disk,
+and persists approval. Runtime execution still happens through an agent reading
+`agent-brief.md`.
 
 ## Non-Goals For The CLI Kit
 

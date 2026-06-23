@@ -29,16 +29,24 @@ To run the local visual loop yourself:
 python3 scripts/stylekit_ui.py
 ```
 
-Then open the printed localhost URL. The main UI is deliberately two steps: paste one style source link, then describe one target asset. It prepares the run, waits for generated candidates on the review screen, and writes `locked_style` to `.style-kit-state.json` when you approve a candidate. Runtime details, contact sheets, and generated briefs stay behind debug details.
+Then open the printed localhost URL. The main UI is deliberately two inputs:
+paste one style source link, then describe one target asset. After preparation,
+the first review pass is source extraction review: confirm that the extracted
+elements/contact sheet are right, drop irrelevant elements, and note anything
+the extractor missed. The UI waits for generated candidates only after that
+source review, and writes `locked_style` to `.style-kit-state.json` when you
+approve a candidate. Runtime details, contact sheets, and generated briefs stay
+behind debug details.
 
 If you are running the toolkit yourself, the underlying flow is:
 
 1. Clone the repo.
 2. Give it one source URL and one target asset.
 3. Run `prepare_agent_run.py`.
-4. Hand the generated `agent-brief.md` to any long-running agent runtime.
-5. Review the generated assets and taste notes after each iteration.
-6. If the agent loses context, tell it to run `python3 scripts/next_action.py`.
+4. Review `source-review.json` and remove or supplement extracted elements.
+5. Hand the generated `agent-brief.md` to any long-running agent runtime.
+6. Review the generated assets and taste notes after each iteration.
+7. If the agent loses context, tell it to run `python3 scripts/next_action.py`.
 
 ## Install
 
@@ -63,13 +71,18 @@ This writes:
 - `outputs/runs/mango/reference-assets/`
 - `outputs/runs/mango/assets.json`
 - `outputs/runs/mango/contact-sheet.jpg`
+- `outputs/runs/mango/source-review.json`
 - `outputs/runs/mango/prompt.txt`
 - `outputs/runs/mango/taste-notes.md`
 - `outputs/runs/mango/agent-brief.md`
 - `outputs/runs/mango/run.json`
 - `.style-kit-state.json`
 
-Give `agent-brief.md` to an agent. It contains the files to inspect, the prompt to use, the bounded stop rule, and the next commands to run after generation.
+Review `source-review.json` before generation. It starts in `draft` state so a
+human or agent can confirm/delete/supplement the extracted source elements.
+Once the review is confirmed, give `agent-brief.md` to an agent. It contains
+the files to inspect, the prompt to use, the bounded stop rule, and the next
+commands to run after generation.
 
 The minimum agent-facing input is:
 
@@ -164,7 +177,7 @@ python3 scripts/chroma_to_alpha.py \
 This repository does not pretend the taste check is automatic. The inspectable loop is:
 
 ```text
-source assets -> contact sheet -> prompt recipe -> generation -> contact sheet comparison -> notes -> next prompt
+source assets -> contact sheet -> source review -> prompt recipe -> generation -> contact sheet comparison -> notes -> next prompt
 ```
 
 Keep prompts in `prompts/` and comparisons in `outputs/` so each iteration can be reviewed.
@@ -173,6 +186,10 @@ The v1 stop rule is deliberately bounded: run at most `--max-iterations` attempt
 
 ## Human Runtime UI
 
-The local UI keeps the visible path to two blanks: one source URL, then one target. It detects runtimes for the debug/runtime layer, but the main human loop is source -> target -> review. Once a candidate is approved, that run becomes the locked style context for generating more objects or images.
+The local UI keeps the visible input path to two blanks: one source URL, then
+one target. It detects runtimes for the debug/runtime layer, but the main human
+loop is source -> target -> extraction review -> candidate review. Once a
+candidate is approved, that run becomes the locked style context for generating
+more objects or images.
 
 That frontend should consume the same CLI + JSON + filesystem contract instead of introducing a separate hidden workflow.
