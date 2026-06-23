@@ -35,11 +35,18 @@ def recommend(run: dict) -> dict[str, str]:
     cutouts = find_pngs(files.get("cutouts_dir"))
     run_dir = Path(files.get("run_dir", "outputs/runs/current"))
     comparison = run_dir / "comparison.jpg"
+    status = run.get("status")
 
     if iteration > max_iterations:
         return {
             "command": f"Stop iteration and update {files.get('taste_notes')} with best candidate plus remaining drift.",
             "why": f"Run iteration {iteration} is beyond max_iterations {max_iterations}.",
+        }
+
+    if status == "generating" and not generated:
+        return {
+            "command": f"Wait for the agent runtime to write PNG candidates into {files.get('generated_dir')}.",
+            "why": "Generation has been marked in progress, but no generated image files exist yet.",
         }
 
     if not generated:

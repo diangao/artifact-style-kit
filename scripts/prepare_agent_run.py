@@ -12,15 +12,21 @@ Tool contract:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
+import shutil
+import subprocess
 import sys
+import unicodedata
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from build_contact_sheet import build_sheet, image_paths, parse_color
 from collect_assets import (
+    Asset,
     DEFAULT_ASSET_RE,
+    collect_from_text,
     collect_from_url,
     compile_filters,
     download_assets,
@@ -45,9 +51,14 @@ class RunFiles:
 
 
 def slugify(value: str) -> str:
-    slug = re.sub(r"[^a-zA-Z0-9._-]+", "-", value.strip()).strip("-").lower()
-    if not slug:
+    raw = value.strip()
+    if not raw:
         raise ValueError("run name cannot be empty")
+    normalized = unicodedata.normalize("NFKD", raw).encode("ascii", "ignore").decode("ascii")
+    slug = re.sub(r"[^a-zA-Z0-9._-]+", "-", normalized).strip("-").lower()
+    if not slug:
+        digest = hashlib.sha1(raw.encode("utf-8")).hexdigest()[:8]
+        return f"run-{digest}"
     return slug
 
 
@@ -104,7 +115,7 @@ Loop contract:
 """
 
 
-def source_review_text(subject: str, source_url: str | None) -> str:
+def source_review_text(subject: str, source_url: str | None, missing_reference_notes: str = "") -> str:
     return json.dumps(
         {
             "status": "draft",
@@ -112,7 +123,7 @@ def source_review_text(subject: str, source_url: str | None) -> str:
             "source_url": source_url or "manual reference folder",
             "review_goal": "Confirm that the extracted elements/contact sheet are the right source evidence.",
             "ignored_reference_assets": [],
-            "missing_reference_notes": "",
+            "missing_reference_notes": missing_reference_notes,
             "style_notes": "",
         },
         indent=2,
@@ -200,6 +211,97 @@ Do not loop forever. If the candidate still drifts after {max_iterations} iterat
 """
 
 
+def chrome_binary() -> str | None:
+    for name in ("google-chrome", "chromium", "chrome"):
+        binary = shutil.which(name)
+        if binary:
+            return binary
+    for candidate in (
+        Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"),
+        Path("/Applications/Chromium.app/Contents/MacOS/Chromium"),
+    ):
+        if candidate.exists():
+            return str(candidate)
+    return None
+
+
+def collect_with_browser(
+    source_url: str,
+    reference_dir: Path,
+    asset_re: re.Pattern[str],
+    includes: list[re.Pattern[str]],
+    excludes: list[re.Pattern[str]],
+    max_assets: int,
+    reason: str,
+) -> tuple[list[Asset], list[dict[str, str]], str]:
+    binary = chrome_binary()
+    if not binary:
+        raise RuntimeError("Chrome/Chromium was not found for headless-browser fallback")
+
+    browser_dir = reference_dir / "browser"
+    browser_dir.mkdir(parents=True, exist_ok=True)
+    screenshot = browser_dir / "page-screenshot.png"
+    dom_path = browser_dir / "page.html"
+    common = [
+        binary,
+        "--headless=new",
+        "--disable-gpu",
+        "--disable-dev-shm-usage",
+        "--hide-scrollbars",
+        "--no-first-run",
+        "--no-default-browser-check",
+        "--window-size=1440,1200",
+    ]
+    screenshot_proc = subprocess.run(
+        [*common, f"--screenshot={screenshot}", source_url],
+        text=True,
+        capture_output=True,
+        timeout=45,
+        check=False,
+    )
+    if not screenshot.exists() or screenshot.stat().st_size == 0:
+        raise RuntimeError(
+            "headless browser fallback failed to capture a screenshot: "
+            + (screenshot_proc.stderr.strip() or screenshot_proc.stdout.strip() or f"exit {screenshot_proc.returncode}")
+        )
+
+    dom_proc = subprocess.run(
+        [*common, "--dump-dom", source_url],
+        text=True,
+        capture_output=True,
+        timeout=45,
+        check=False,
+    )
+    rendered_assets: list[Asset] = []
+    download_errors: list[dict[str, str]] = []
+    if dom_proc.stdout:
+        dom_path.write_text(dom_proc.stdout)
+        rendered_assets = collect_from_text(
+            dom_proc.stdout,
+            f"{source_url}#headless-browser",
+            source_url,
+            asset_re,
+            includes,
+            excludes,
+        )
+        if max_assets > 0:
+            rendered_assets = rendered_assets[:max_assets]
+        download_errors = download_assets(rendered_assets, reference_dir)
+
+    assets = [
+        Asset(
+            reference="browser/page-screenshot.png",
+            url=str(screenshot),
+            source_file=f"{source_url}#headless-browser",
+        )
+    ] + rendered_assets
+    note = (
+        f"Automated HTML asset fetch was blocked or empty ({reason}). "
+        "This source bundle was captured with a headless browser; review the screenshot and visible assets before generation."
+    )
+    return assets, download_errors, note
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run-name")
@@ -218,6 +320,7 @@ def main() -> int:
     parser.add_argument("--max-assets", type=int, default=60)
     parser.add_argument("--max-iterations", type=int, default=5)
     parser.add_argument("--user-agent", default="artifact-style-kit/1.0")
+    parser.add_argument("--no-browser-fallback", action="store_true", help="Do not use headless Chrome when URL asset fetch is blocked or empty.")
     parser.add_argument("--state", type=Path, default=Path(".style-kit-state.json"))
     args = parser.parse_args()
 
@@ -239,22 +342,87 @@ def main() -> int:
     run_dir = args.output_dir / run_name
     assets_manifest: Path | None = None
     download_errors: list[dict[str, str]] = []
+    browser_fallback = False
+    browser_fallback_reason = ""
+    source_review_note = ""
     if source_url:
+        reference_dir = run_dir / "reference-assets"
+        assets_manifest = run_dir / "assets.json"
         try:
             asset_re = re.compile(args.asset_regex, re.IGNORECASE)
             includes = compile_filters(include_patterns)
             excludes = compile_filters(exclude_patterns)
+        except re.error as exc:
+            parser.error(str(exc))
+        try:
             assets = collect_from_url(source_url, asset_re, includes, excludes, args.user_agent)
         except Exception as exc:
-            print(f"Error: failed to collect assets from {source_url}: {exc}", file=sys.stderr)
-            print("Next action: rerun with --reference-dir pointing at manually collected reference images.", file=sys.stderr)
-            return 2
+            if args.no_browser_fallback:
+                print(f"Error: failed to collect assets from {source_url}: {exc}", file=sys.stderr)
+                print("Next action: rerun with --reference-dir pointing at manually collected reference images.", file=sys.stderr)
+                return 2
+            browser_fallback = True
+            browser_fallback_reason = str(exc)
+            try:
+                assets, download_errors, source_review_note = collect_with_browser(
+                    source_url,
+                    reference_dir,
+                    asset_re,
+                    includes,
+                    excludes,
+                    args.max_assets,
+                    browser_fallback_reason,
+                )
+            except Exception as fallback_exc:
+                print(f"Error: failed to collect assets from {source_url}: {exc}", file=sys.stderr)
+                print(f"Error: headless browser fallback also failed: {fallback_exc}", file=sys.stderr)
+                print("Next action: provide a manually collected --reference-dir.", file=sys.stderr)
+                return 2
+        else:
+            if args.max_assets > 0:
+                assets = assets[: args.max_assets]
+            if not assets and not args.no_browser_fallback:
+                browser_fallback = True
+                browser_fallback_reason = "no direct image assets were discovered"
+                try:
+                    assets, download_errors, source_review_note = collect_with_browser(
+                        source_url,
+                        reference_dir,
+                        asset_re,
+                        includes,
+                        excludes,
+                        args.max_assets,
+                        browser_fallback_reason,
+                    )
+                except Exception as fallback_exc:
+                    print(f"Error: no direct image assets discovered at {source_url}", file=sys.stderr)
+                    print(f"Error: headless browser fallback also failed: {fallback_exc}", file=sys.stderr)
+                    print("Next action: provide a manually collected --reference-dir.", file=sys.stderr)
+                    return 2
+            else:
+                download_errors = download_assets(assets, reference_dir)
+                if not image_paths(reference_dir) and not args.no_browser_fallback:
+                    browser_fallback = True
+                    browser_fallback_reason = "direct image assets could not be downloaded"
+                    try:
+                        assets, fallback_errors, source_review_note = collect_with_browser(
+                            source_url,
+                            reference_dir,
+                            asset_re,
+                            includes,
+                            excludes,
+                            args.max_assets,
+                            browser_fallback_reason,
+                        )
+                    except Exception as fallback_exc:
+                        print(f"Error: direct image assets could not be downloaded from {source_url}", file=sys.stderr)
+                        print(f"Error: headless browser fallback also failed: {fallback_exc}", file=sys.stderr)
+                        print("Next action: provide a manually collected --reference-dir.", file=sys.stderr)
+                        return 2
+                    download_errors.extend(fallback_errors)
         if args.max_assets > 0:
             assets = assets[: args.max_assets]
-        reference_dir = run_dir / "reference-assets"
-        assets_manifest = run_dir / "assets.json"
         write_manifest(assets, assets_manifest)
-        download_errors = download_assets(assets, reference_dir)
 
     assert reference_dir is not None
     generated_dir = run_dir / "generated"
@@ -300,7 +468,7 @@ def main() -> int:
         comparison=str(comparison),
     )
 
-    write_text(source_review_path, source_review_text(subject, source_url))
+    write_text(source_review_path, source_review_text(subject, source_url, source_review_note))
     write_text(prompt_path, prompt_text(subject, args.key, max_iterations, str(source_review_path)))
     write_text(taste_notes_path, taste_notes_text(subject, source_url, max_iterations))
     write_text(agent_brief_path, agent_brief_text(files, subject, args.key, source_url, max_iterations))
@@ -316,6 +484,8 @@ def main() -> int:
                 "reference_count": len(paths),
                 "download_error_count": len(download_errors),
                 "download_errors": download_errors,
+                "browser_fallback": browser_fallback,
+                "browser_fallback_reason": browser_fallback_reason,
                 "max_iterations": max_iterations,
                 "files": asdict(files),
                 "next_action": f"Review {source_review_path} and confirm/delete/supplement extracted elements before generation.",
@@ -335,6 +505,8 @@ def main() -> int:
             "reference_count": len(paths),
             "download_error_count": len(download_errors),
             "download_errors": download_errors,
+            "browser_fallback": browser_fallback,
+            "browser_fallback_reason": browser_fallback_reason,
             "max_iterations": max_iterations,
             "status": "prepared",
             "source_review_status": "draft",

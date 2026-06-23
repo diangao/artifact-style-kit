@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 import mimetypes
+import re
 import shutil
 import subprocess
 import sys
@@ -19,10 +20,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
+from build_contact_sheet import build_sheet, parse_color
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 STATE_PATH = REPO_ROOT / ".style-kit-state.json"
 RUNTIME_ORDER = ["codex", "claude", "cursor"]
+SUPPORTED_RUNTIMES = {"codex", "claude"}
 
 
 def nowish_error(message: str, status: int = 400) -> tuple[int, dict[str, Any]]:
@@ -64,10 +68,30 @@ def detect_runtimes() -> list[dict[str, Any]]:
                 "name": name,
                 "available": bool(binary),
                 "path": binary,
+                "supported": name in SUPPORTED_RUNTIMES,
                 "recommended": name == "codex",
             }
         )
     return runtimes
+
+
+def prepare_error_message(stdout: str, stderr: str) -> tuple[int, str]:
+    raw = (stderr.strip() or stdout.strip() or "prepare_agent_run.py failed").strip()
+    if "robots.txt disallows fetching" in raw:
+        match = re.search(r"robots\.txt disallows fetching\s+(\S+)", raw)
+        source = match.group(1) if match else "this source"
+        return (
+            409,
+            f"{source} blocks automated asset fetching via robots.txt. Use a different source URL, "
+            "or collect reference images manually and run the CLI with --reference-dir.",
+        )
+    if "no reference images found" in raw:
+        return 422, "No reference images were found. Use a source with direct image assets or provide a reference folder."
+    if "run name cannot be empty" in raw:
+        return 422, "The target could not be converted into a run name. Add a run name or use a more specific target."
+    compact = " ".join(line.strip() for line in raw.splitlines() if line.strip())
+    compact = compact.replace("Error: ", "").replace("Next action: ", "")
+    return 500, compact or "prepare_agent_run.py failed"
 
 
 def image_files(value: str | None) -> list[dict[str, str]]:
@@ -152,7 +176,15 @@ def current_view() -> dict[str, Any]:
     }
     key_files = {
         key: rel(files.get(key))
-        for key in ["contact_sheet", "comparison", "source_review", "prompt", "taste_notes", "agent_brief"]
+        for key in [
+            "contact_sheet",
+            "review_contact_sheet",
+            "comparison",
+            "source_review",
+            "prompt",
+            "taste_notes",
+            "agent_brief",
+        ]
         if files.get(key) and repo_path(files.get(key)).exists()
     }
     source_review = {}
@@ -183,7 +215,10 @@ def prepare_run(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     run_name = str(payload.get("run_name", "")).strip()
     include = [str(item).strip() for item in payload.get("include", []) if str(item).strip()]
     exclude = [str(item).strip() for item in payload.get("exclude", []) if str(item).strip()]
-    max_iterations = int(payload.get("max_iterations") or 5)
+    try:
+        max_iterations = int(payload.get("max_iterations") or 5)
+    except (TypeError, ValueError):
+        return nowish_error("max_iterations must be a number")
 
     if not subject:
         return nowish_error("target is required")
@@ -211,9 +246,10 @@ def prepare_run(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
 
     proc = subprocess.run(cmd, cwd=REPO_ROOT, text=True, capture_output=True, check=False)
     if proc.returncode != 0:
-        return 500, {
+        status, message = prepare_error_message(proc.stdout, proc.stderr)
+        return status, {
             "status": "error",
-            "error": proc.stderr.strip() or proc.stdout.strip() or "prepare_agent_run.py failed",
+            "error": message,
             "stdout": proc.stdout,
             "stderr": proc.stderr,
         }
@@ -257,6 +293,72 @@ def lock_style(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     return 200, {"status": "ok", "locked_style": locked, "view": current_view()}
 
 
+def start_runtime(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+    runtime = str(payload.get("runtime") or "codex").strip()
+    runtime_info = next((item for item in detect_runtimes() if item["name"] == runtime), None)
+    if not runtime_info:
+        return nowish_error(f"unknown runtime: {runtime}")
+    if not runtime_info["supported"]:
+        return nowish_error(f"{runtime} is detected in the UI list but is not wired to the launcher yet")
+    if not runtime_info["available"]:
+        return nowish_error(f"{runtime} executable was not found on PATH", 404)
+
+    state = load_json(STATE_PATH)
+    current_run = state.get("current_run")
+    run = state.get("runs", {}).get(current_run, {}) if current_run else {}
+    if not current_run or not run:
+        return nowish_error("no current run to generate", 404)
+    if run.get("source_review_status") != "confirmed":
+        return nowish_error("confirm source elements before starting generation")
+    if run.get("status") == "generating":
+        return nowish_error("generation is already running")
+
+    files = run.get("files", {})
+    log_path = repo_path(files.get("run_dir")) / "agent-runtime.launch.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    state.setdefault("runs", {}).setdefault(current_run, {}).update(
+        {
+            "status": "generating",
+            "runtime": runtime,
+            "runtime_launch_log": rel(log_path),
+        }
+    )
+    save_json(STATE_PATH, state)
+
+    with log_path.open("a") as log:
+        subprocess.Popen(
+            [sys.executable, "scripts/run_agent_runtime.py", "--run", current_run, "--runtime", runtime],
+            cwd=REPO_ROOT,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+    return 200, {"status": "ok", "runtime": runtime, "view": current_view()}
+
+
+def write_review_contact_sheet(files: dict[str, Any], ignored_reference_assets: list[str]) -> str | None:
+    reference_dir = repo_path(files.get("reference_dir"))
+    assets = image_files(files.get("reference_dir"))
+    ignored = set(ignored_reference_assets)
+    kept = [repo_path(item["path"]) for item in assets if item["path"] not in ignored]
+    output = repo_path(files.get("run_dir")) / "review-contact-sheet.jpg"
+    if not kept:
+        if output.exists():
+            output.unlink()
+        return None
+    build_sheet(
+        paths=kept,
+        output=output,
+        cell_size=160,
+        columns=8,
+        label_height=24,
+        background=parse_color("e8e9e0"),
+        labels=True,
+        base_dir=reference_dir,
+    )
+    return rel(output)
+
+
 def save_source_review(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     state = load_json(STATE_PATH)
     current_run = state.get("current_run")
@@ -277,6 +379,11 @@ def save_source_review(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
 
     review_path = repo_path(files.get("source_review"))
     review = load_json(review_path) if review_path.exists() else {}
+    review_contact_sheet = write_review_contact_sheet(files, ignored_reference_assets)
+    if review_contact_sheet:
+        files["review_contact_sheet"] = review_contact_sheet
+    else:
+        files.pop("review_contact_sheet", None)
     review.update(
         {
             "status": "confirmed",
@@ -297,6 +404,7 @@ def save_source_review(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
                 "command": f"Read {files.get('agent_brief')} and generate candidates from {files.get('prompt')}.",
                 "why": "The source extraction is confirmed and no generated candidates are present yet.",
             },
+            "files": files,
         }
     )
     save_json(STATE_PATH, state)
@@ -333,6 +441,7 @@ HTML = r"""<!doctype html>
       font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
     * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
     body { margin: 0; min-height: 100vh; background: var(--paper); color: var(--ink); }
     button, input, textarea { font: inherit; }
     .app { width: min(920px, calc(100vw - 32px)); margin: 0 auto; padding: 38px 0 56px; }
@@ -370,6 +479,22 @@ HTML = r"""<!doctype html>
     }
     button.primary { background: var(--ink); border-color: var(--ink); color: white; }
     button:disabled { opacity: .55; cursor: not-allowed; }
+    select {
+      min-height: 44px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: white;
+      color: var(--ink);
+      padding: 0 34px 0 12px;
+      font: inherit;
+    }
+    .runtime-picker {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
     .message { min-height: 22px; color: var(--muted); font-size: 13px; }
     .message.error { color: var(--bad); }
     .review { display: grid; gap: 18px; }
@@ -393,6 +518,13 @@ HTML = r"""<!doctype html>
       gap: 18px;
       align-items: stretch;
       padding: 18px;
+    }
+    .source-waiting {
+      width: min(760px, 100%);
+      display: grid;
+      gap: 18px;
+      padding: 18px;
+      align-items: center;
     }
     .source-preview, .source-editor {
       border: 1px solid var(--line);
@@ -531,6 +663,11 @@ HTML = r"""<!doctype html>
             <button id="newRun">New run</button>
             <button id="refresh">Refresh</button>
             <button id="confirmSource" class="primary">Use these elements</button>
+            <label id="runtimePicker" class="runtime-picker" for="runtimeSelect">
+              Runtime
+              <select id="runtimeSelect"></select>
+            </label>
+            <button id="startRuntime" class="primary">Start runtime</button>
             <button id="approve" class="primary">Looks right</button>
           </div>
         </div>
@@ -613,6 +750,41 @@ HTML = r"""<!doctype html>
       return Boolean(view?.files?.source_review) && !candidates().length && view?.source_review?.status !== 'confirmed';
     }
 
+    function isGenerating() {
+      return view?.run?.status === 'generating';
+    }
+
+    function defaultRuntimeName() {
+      const runtimes = view?.runtimes || [];
+      const recommended = runtimes.find((item) => item.available && item.supported && item.recommended);
+      const fallback = runtimes.find((item) => item.available && item.supported);
+      return (recommended || fallback)?.name || '';
+    }
+
+    function renderRuntimeSelect(canStartRuntime) {
+      const select = $('runtimeSelect');
+      const runtimes = view?.runtimes || [];
+      const previous = select.value;
+      if (!runtimes.length) {
+        select.innerHTML = '<option value="">No runtime detected</option>';
+        select.value = '';
+        select.disabled = true;
+        return;
+      }
+      select.innerHTML = runtimes.map((item) => {
+        const details = item.available
+          ? item.supported
+            ? 'detected'
+            : 'detected, not wired'
+          : 'not found';
+        const disabled = !item.available || !item.supported ? 'disabled' : '';
+        return `<option value="${escapeHtml(item.name)}" ${disabled}>${escapeHtml(item.name)} (${details})</option>`;
+      }).join('');
+      const supportedNames = new Set(runtimes.filter((item) => item.available && item.supported).map((item) => item.name));
+      select.value = supportedNames.has(previous) ? previous : defaultRuntimeName();
+      select.disabled = !canStartRuntime || !select.value;
+    }
+
     function selectedArtifact() {
       const items = candidates();
       return selectedCandidate || items[0]?.path || null;
@@ -637,20 +809,50 @@ HTML = r"""<!doctype html>
     function renderMainArtifact() {
       const path = selectedArtifact();
       const needsReview = needsSourceReview();
-      $('reviewTitle').textContent = path ? 'Review the result.' : needsReview ? 'Review the extracted elements.' : 'Ready for agent generation.';
+      const canStartRuntime = !path && !needsReview && view?.source_review?.status === 'confirmed' && !isGenerating() && Boolean(defaultRuntimeName());
+      $('reviewTitle').textContent = path
+        ? 'Review the result.'
+        : needsReview
+          ? 'Review the extracted elements.'
+          : isGenerating()
+            ? 'Generating candidate.'
+            : 'Waiting for agent output.';
       $('approve').hidden = !path;
       $('approve').disabled = !path;
       $('confirmSource').hidden = !needsReview;
       $('confirmSource').disabled = !needsReview;
+      $('runtimePicker').hidden = !canStartRuntime && !isGenerating();
+      renderRuntimeSelect(canStartRuntime);
+      $('startRuntime').hidden = !canStartRuntime && !isGenerating();
+      $('startRuntime').disabled = !canStartRuntime;
+      $('startRuntime').textContent = isGenerating() ? 'Generating...' : 'Start runtime';
       if (needsReview) {
         renderSourceReview();
         return;
       }
       if (!path) {
-        $('artifactMain').innerHTML = '<div class="empty">The source bundle is ready. Generate a candidate from the agent brief, then refresh.</div>';
+        renderWaitingForGeneration();
         return;
       }
       $('artifactMain').innerHTML = `<a href="${fileUrl(path)}" target="_blank"><img src="${fileUrl(path)}" alt="${path}"></a>`;
+    }
+
+    function renderWaitingForGeneration() {
+      const sheet = view.files?.review_contact_sheet || view.files?.contact_sheet;
+      const text = isGenerating()
+        ? 'Generating is in progress. This screen will show the candidate when files land in the run folder.'
+        : 'Source elements are confirmed. No generator is running in this UI yet; start an agent with the brief, then refresh.';
+      $('artifactMain').innerHTML = `
+        <div class="source-waiting">
+          ${sheet ? `
+            <div class="source-preview">
+              <h3>Reviewed contact sheet</h3>
+              <a href="${fileUrl(sheet)}" target="_blank"><img src="${fileUrl(sheet)}" alt="reviewed contact sheet"></a>
+            </div>
+          ` : ''}
+          <div class="empty">${text}</div>
+        </div>
+      `;
     }
 
     function renderSourceReview() {
@@ -723,8 +925,9 @@ HTML = r"""<!doctype html>
       $('nextAction').textContent = next ? `${next.command}\n\n${next.why}` : JSON.stringify(view.next_action || {}, null, 2);
       $('agentBrief').textContent = await loadText(view.files?.agent_brief);
       $('sourceReview').textContent = await loadText(view.files?.source_review);
-      $('contactSheet').innerHTML = view.files?.contact_sheet
-        ? `<a href="${fileUrl(view.files.contact_sheet)}" target="_blank"><img src="${fileUrl(view.files.contact_sheet)}" style="width:100%;border-radius:6px;border:1px solid var(--line);"></a>`
+      const sheet = view.files?.review_contact_sheet || view.files?.contact_sheet;
+      $('contactSheet').innerHTML = sheet
+        ? `<a href="${fileUrl(sheet)}" target="_blank"><img src="${fileUrl(sheet)}" style="width:100%;border-radius:6px;border:1px solid var(--line);"></a>`
         : 'No contact sheet yet.';
     }
 
@@ -798,6 +1001,24 @@ HTML = r"""<!doctype html>
       }
     }
 
+    async function startRuntime() {
+      $('startRuntime').disabled = true;
+      const runtime = $('runtimeSelect').value || defaultRuntimeName();
+      setMessage('messageReview', `Starting ${runtime} runtime...`);
+      try {
+        await api('/api/generate', {
+          method: 'POST',
+          body: JSON.stringify({runtime})
+        });
+        await refresh();
+        setMessage('messageReview', 'Generation started. Refresh to pick up new artifacts.');
+      } catch (error) {
+        setMessage('messageReview', error.message, true);
+      } finally {
+        renderMainArtifact();
+      }
+    }
+
     $('toTarget').onclick = () => {
       const value = $('sourceUrl').value.trim();
       if (!value) {
@@ -814,9 +1035,14 @@ HTML = r"""<!doctype html>
     $('prepare').onclick = prepare;
     $('refresh').onclick = () => refresh().catch((error) => setMessage('messageReview', error.message, true));
     $('confirmSource').onclick = confirmSource;
+    $('startRuntime').onclick = startRuntime;
     $('approve').onclick = lock;
 
-    refresh().catch(() => {});
+    refresh()
+      .then(() => {
+        if (view?.current_run) screen('Review');
+      })
+      .catch(() => {});
   </script>
 </body>
 </html>
@@ -893,6 +1119,10 @@ class Handler(BaseHTTPRequestHandler):
             return
         if parsed.path == "/api/lock":
             status, response = lock_style(payload)
+            self.send_json(status, response)
+            return
+        if parsed.path == "/api/generate":
+            status, response = start_runtime(payload)
             self.send_json(status, response)
             return
         if parsed.path == "/api/source-review":
