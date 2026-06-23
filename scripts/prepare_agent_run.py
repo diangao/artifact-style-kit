@@ -238,46 +238,56 @@ def collect_with_browser(
     if not binary:
         raise RuntimeError("Chrome/Chromium was not found for headless-browser fallback")
 
-    browser_dir = reference_dir / "browser"
-    browser_dir.mkdir(parents=True, exist_ok=True)
-    screenshot = browser_dir / "page-screenshot.png"
-    dom_path = browser_dir / "page.html"
-    common = [
-        binary,
-        "--headless=new",
-        "--disable-gpu",
-        "--disable-dev-shm-usage",
-        "--hide-scrollbars",
-        "--no-first-run",
-        "--no-default-browser-check",
-        "--window-size=1440,1200",
-    ]
-    screenshot_proc = subprocess.run(
-        [*common, f"--screenshot={screenshot}", source_url],
+    capture_script = Path(__file__).with_name("browser_capture_elements.mjs")
+    capture_proc = subprocess.run(
+        [
+            "node",
+            str(capture_script),
+            "--chrome",
+            binary,
+            "--url",
+            source_url,
+            "--out-dir",
+            str(reference_dir),
+            "--max-elements",
+            str(max_assets),
+        ],
         text=True,
         capture_output=True,
-        timeout=45,
+        timeout=60,
         check=False,
     )
-    if not screenshot.exists() or screenshot.stat().st_size == 0:
+    if capture_proc.returncode != 0:
         raise RuntimeError(
-            "headless browser fallback failed to capture a screenshot: "
-            + (screenshot_proc.stderr.strip() or screenshot_proc.stdout.strip() or f"exit {screenshot_proc.returncode}")
+            "headless browser fallback failed to capture page elements: "
+            + (capture_proc.stderr.strip() or capture_proc.stdout.strip() or f"exit {capture_proc.returncode}")
         )
 
-    dom_proc = subprocess.run(
-        [*common, "--dump-dom", source_url],
-        text=True,
-        capture_output=True,
-        timeout=45,
-        check=False,
-    )
+    browser_dir = reference_dir / "browser"
+    screenshot = browser_dir / "page-screenshot.png"
+    dom_path = browser_dir / "page.html"
+    if not screenshot.exists() or screenshot.stat().st_size == 0:
+        raise RuntimeError("headless browser fallback did not create browser/page-screenshot.png")
+
+    try:
+        capture_manifest = json.loads(capture_proc.stdout or "{}")
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"headless browser fallback returned invalid JSON: {exc}") from exc
+
+    captured_assets = [
+        Asset(
+            reference=str(item.get("reference", "")),
+            url=str(reference_dir / str(item.get("reference", ""))),
+            source_file=str(item.get("source_file") or f"{source_url}#headless-browser"),
+        )
+        for item in capture_manifest.get("references", [])
+        if item.get("reference")
+    ]
     rendered_assets: list[Asset] = []
     download_errors: list[dict[str, str]] = []
-    if dom_proc.stdout:
-        dom_path.write_text(dom_proc.stdout)
+    if dom_path.exists():
         rendered_assets = collect_from_text(
-            dom_proc.stdout,
+            dom_path.read_text(errors="replace"),
             f"{source_url}#headless-browser",
             source_url,
             asset_re,
@@ -288,16 +298,12 @@ def collect_with_browser(
             rendered_assets = rendered_assets[:max_assets]
         download_errors = download_assets(rendered_assets, reference_dir)
 
-    assets = [
-        Asset(
-            reference="browser/page-screenshot.png",
-            url=str(screenshot),
-            source_file=f"{source_url}#headless-browser",
-        )
-    ] + rendered_assets
+    captured_refs = {asset.reference for asset in captured_assets}
+    assets = captured_assets + [asset for asset in rendered_assets if asset.reference not in captured_refs]
     note = (
         f"Automated HTML asset fetch was blocked or empty ({reason}). "
-        "This source bundle was captured with a headless browser; review the screenshot and visible assets before generation."
+        "This source bundle was captured with a headless browser and includes DOM element crops; "
+        "review/drop the visible elements before generation."
     )
     return assets, download_errors, note
 

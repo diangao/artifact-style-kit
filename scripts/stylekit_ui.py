@@ -705,6 +705,7 @@ HTML = r"""<!doctype html>
     let view = null;
     let selectedCandidate = null;
     let pendingSource = '';
+    let runtimePollTimer = null;
 
     function fileUrl(path) {
       return `/api/file?path=${encodeURIComponent(path)}`;
@@ -804,6 +805,22 @@ HTML = r"""<!doctype html>
       renderMainArtifact();
       renderThumbs();
       await renderDebug();
+      syncRuntimePolling();
+    }
+
+    function syncRuntimePolling() {
+      if (isGenerating()) {
+        if (!runtimePollTimer) {
+          runtimePollTimer = window.setInterval(() => {
+            refresh().catch((error) => setMessage('messageReview', error.message, true));
+          }, 3000);
+        }
+        return;
+      }
+      if (runtimePollTimer) {
+        window.clearInterval(runtimePollTimer);
+        runtimePollTimer = null;
+      }
     }
 
     function renderMainArtifact() {
@@ -1011,7 +1028,7 @@ HTML = r"""<!doctype html>
           body: JSON.stringify({runtime})
         });
         await refresh();
-        setMessage('messageReview', 'Generation started. Refresh to pick up new artifacts.');
+        setMessage('messageReview', 'Generation started. This page will update when artifacts land.');
       } catch (error) {
         setMessage('messageReview', error.message, true);
       } finally {
