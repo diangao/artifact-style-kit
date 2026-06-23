@@ -5,9 +5,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
+import signal
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -66,7 +69,67 @@ If this runtime cannot generate images, do not fake an output. Write a clear blo
     prompt_path.write_text(text)
 
 
-def run_codex(run_name: str, run: dict, prompt_path: Path, log_path: Path, final_path: Path) -> int:
+TIMEOUT_EXIT_CODE = 124
+HEARTBEAT_SECONDS = 15
+TERMINATE_GRACE_SECONDS = 10
+
+
+def terminate_process_group(proc: subprocess.Popen[str], log, timeout_seconds: int) -> int:
+    log.write(f"\n[{utc_now()}] timed out after {timeout_seconds}s; terminating runtime process group\n")
+    log.flush()
+    try:
+        os.killpg(proc.pid, signal.SIGTERM)
+        proc.wait(timeout=TERMINATE_GRACE_SECONDS)
+    except subprocess.TimeoutExpired:
+        log.write(f"[{utc_now()}] runtime did not exit after SIGTERM; killing process group\n")
+        log.flush()
+        os.killpg(proc.pid, signal.SIGKILL)
+        proc.wait()
+        return TIMEOUT_EXIT_CODE
+    except ProcessLookupError:
+        return TIMEOUT_EXIT_CODE
+    return TIMEOUT_EXIT_CODE
+
+
+def run_command(cmd: list[str], prompt_path: Path, log_path: Path, timeout_seconds: int, run_name: str) -> int:
+    with prompt_path.open() as stdin, log_path.open("a") as log:
+        log.write(f"[{utc_now()}] starting {' '.join(cmd)}\n")
+        log.flush()
+        proc = subprocess.Popen(
+            cmd,
+            cwd=REPO_ROOT,
+            stdin=stdin,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            text=True,
+            start_new_session=True,
+        )
+        started = time.monotonic()
+        next_heartbeat = started + HEARTBEAT_SECONDS
+        update_run(run_name, runtime_pid=proc.pid, runtime_heartbeat_at=utc_now())
+        while True:
+            return_code = proc.poll()
+            if return_code is not None:
+                break
+
+            now = time.monotonic()
+            if now - started >= timeout_seconds:
+                return_code = terminate_process_group(proc, log, timeout_seconds)
+                break
+
+            if now >= next_heartbeat:
+                heartbeat_at = utc_now()
+                log.write(f"[{heartbeat_at}] heartbeat: runtime still running pid={proc.pid}\n")
+                log.flush()
+                update_run(run_name, runtime_pid=proc.pid, runtime_heartbeat_at=heartbeat_at)
+                next_heartbeat = now + HEARTBEAT_SECONDS
+
+            time.sleep(1)
+        log.write(f"\n[{utc_now()}] exited {return_code}\n")
+        return return_code
+
+
+def run_codex(run_name: str, run: dict, prompt_path: Path, log_path: Path, final_path: Path, timeout_seconds: int) -> int:
     binary = shutil.which("codex")
     if not binary:
         log_path.write_text("codex executable was not found on PATH.\n")
@@ -81,15 +144,10 @@ def run_codex(run_name: str, run: dict, prompt_path: Path, log_path: Path, final
         str(final_path),
         "-",
     ]
-    with prompt_path.open() as stdin, log_path.open("a") as log:
-        log.write(f"[{utc_now()}] starting {' '.join(cmd[:-1])} -\n")
-        log.flush()
-        proc = subprocess.run(cmd, cwd=REPO_ROOT, stdin=stdin, stdout=log, stderr=subprocess.STDOUT, text=True)
-        log.write(f"\n[{utc_now()}] exited {proc.returncode}\n")
-    return proc.returncode
+    return run_command(cmd, prompt_path, log_path, timeout_seconds, run_name)
 
 
-def run_claude(run_name: str, run: dict, prompt_path: Path, log_path: Path, final_path: Path) -> int:
+def run_claude(run_name: str, run: dict, prompt_path: Path, log_path: Path, final_path: Path, timeout_seconds: int) -> int:
     binary = shutil.which("claude")
     if not binary:
         log_path.write_text("claude executable was not found on PATH.\n")
@@ -100,21 +158,25 @@ def run_claude(run_name: str, run: dict, prompt_path: Path, log_path: Path, fina
         "--permission-mode",
         "bypassPermissions",
     ]
-    with prompt_path.open() as stdin, log_path.open("a") as log:
-        log.write(f"[{utc_now()}] starting {' '.join(cmd)}\n")
-        log.flush()
-        proc = subprocess.run(cmd, cwd=REPO_ROOT, stdin=stdin, stdout=log, stderr=subprocess.STDOUT, text=True)
-        log.write(f"\n[{utc_now()}] exited {proc.returncode}\n")
+    return_code = run_command(cmd, prompt_path, log_path, timeout_seconds, run_name)
     if log_path.exists():
         final_path.write_text(log_path.read_text(errors="replace"))
-    return proc.returncode
+    return return_code
 
 
-def run_runtime(runtime: str, run_name: str, run: dict, prompt_path: Path, log_path: Path, final_path: Path) -> int:
+def run_runtime(
+    runtime: str,
+    run_name: str,
+    run: dict,
+    prompt_path: Path,
+    log_path: Path,
+    final_path: Path,
+    timeout_seconds: int,
+) -> int:
     if runtime == "codex":
-        return run_codex(run_name, run, prompt_path, log_path, final_path)
+        return run_codex(run_name, run, prompt_path, log_path, final_path, timeout_seconds)
     if runtime == "claude":
-        return run_claude(run_name, run, prompt_path, log_path, final_path)
+        return run_claude(run_name, run, prompt_path, log_path, final_path, timeout_seconds)
     log_path.write_text(f"unsupported runtime: {runtime}\n")
     return 2
 
@@ -123,7 +185,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run", required=True)
     parser.add_argument("--runtime", default="codex", choices=["codex", "claude"])
+    parser.add_argument("--timeout-seconds", type=int, default=1800)
     args = parser.parse_args()
+    if args.timeout_seconds < 60:
+        parser.error("--timeout-seconds must be at least 60")
 
     state = load_state(STATE_PATH)
     run = state.get("runs", {}).get(args.run)
@@ -144,12 +209,15 @@ def main() -> int:
         status="generating",
         runtime=args.runtime,
         runtime_started_at=utc_now(),
+        runtime_timeout_seconds=args.timeout_seconds,
+        runtime_pid=None,
+        runtime_heartbeat_at=None,
         runtime_log=rel(log_path),
         runtime_final=rel(final_path),
         runtime_prompt=rel(prompt_path),
     )
 
-    exit_code = run_runtime(args.runtime, args.run, run, prompt_path, log_path, final_path)
+    exit_code = run_runtime(args.runtime, args.run, run, prompt_path, log_path, final_path, args.timeout_seconds)
     generated = pngs(files.get("generated_dir"))
     cutouts = pngs(files.get("cutouts_dir"))
     comparison = REPO_ROOT / files.get("comparison", "")
@@ -166,6 +234,7 @@ def main() -> int:
         status=status,
         runtime_exit_code=exit_code,
         runtime_finished_at=utc_now(),
+        runtime_pid=None,
         runtime_log=rel(log_path),
         runtime_final=rel(final_path),
         has_generated=bool(generated),
