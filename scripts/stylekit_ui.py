@@ -155,7 +155,8 @@ def sync_artifact_state(
     if run.get("has_comparison") != comparison:
         updates["has_comparison"] = comparison
     terminal_statuses = {"locked", "runtime_failed"}
-    if run.get("status") not in terminal_statuses and (has_cutouts or has_generated):
+    runtime_pending = run.get("status") == "generating" and run.get("runtime_exit_code") is None
+    if run.get("status") not in terminal_statuses and not runtime_pending and (has_cutouts or has_generated):
         updates["status"] = "candidate_ready"
         updates["recommended_next"] = {
             "command": "Review the candidate in the UI, then lock the style or loop again.",
@@ -495,6 +496,10 @@ def start_runtime(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
             "status": "generating",
             "runtime": runtime,
             "runtime_launch_log": rel(log_path),
+            "runtime_exit_code": None,
+            "runtime_finished_at": None,
+            "runtime_pid": None,
+            "runtime_heartbeat_at": None,
         }
     )
     save_json(STATE_PATH, state)
@@ -641,6 +646,7 @@ HTML = r"""<!doctype html>
     }
     textarea { min-height: 112px; resize: vertical; }
     input:focus, textarea:focus { border-color: #aeb8b2; box-shadow: 0 0 0 3px rgba(23,31,28,.06); }
+    input:disabled, textarea:disabled, select:disabled { opacity: .55; cursor: not-allowed; }
     .actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
     button {
       border: 1px solid var(--line);
@@ -653,6 +659,11 @@ HTML = r"""<!doctype html>
     }
     button.primary { background: var(--ink); border-color: var(--ink); color: white; }
     button:disabled { opacity: .55; cursor: not-allowed; }
+    button.loading {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
     select {
       min-height: 44px;
       border: 1px solid var(--line);
@@ -716,6 +727,73 @@ HTML = r"""<!doctype html>
       overflow: hidden;
     }
     .artifact-main img { width: 100%; max-height: 76vh; object-fit: contain; display: block; background: var(--soft); }
+    .candidate-stage {
+      position: relative;
+      width: 100%;
+      min-height: 520px;
+      display: grid;
+      place-items: center;
+      background: var(--soft);
+    }
+    .candidate-stage a {
+      width: 100%;
+      display: grid;
+      place-items: center;
+    }
+    .regen-status {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      right: 14px;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border: 1px solid rgba(23,31,28,.14);
+      border-radius: 8px;
+      background: rgba(255,255,255,.94);
+      box-shadow: 0 8px 24px rgba(0,0,0,.08);
+      padding: 10px 12px;
+      color: var(--ink);
+      font-size: 13px;
+    }
+    .regen-status strong {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 650;
+    }
+    .runtime-detail {
+      color: var(--muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .old-candidate {
+      position: absolute;
+      right: 18px;
+      bottom: 18px;
+      z-index: 2;
+      border: 1px solid rgba(23,31,28,.16);
+      border-radius: 999px;
+      background: rgba(255,255,255,.92);
+      padding: 6px 10px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+      text-transform: uppercase;
+    }
+    .spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(23,31,28,.18);
+      border-top-color: var(--ink);
+      border-radius: 999px;
+      animation: spin .8s linear infinite;
+      flex: 0 0 auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
     .source-pass {
       width: 100%;
       min-height: 520px;
@@ -781,6 +859,14 @@ HTML = r"""<!doctype html>
       background: #fbfbf7;
       text-align: center;
     }
+    .empty.busy {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      color: var(--ink);
+      border-style: solid;
+    }
     .thumbs { display: flex; gap: 10px; flex-wrap: wrap; }
     .thumb {
       width: 96px;
@@ -817,6 +903,9 @@ HTML = r"""<!doctype html>
       .app { width: min(100vw - 24px, 920px); padding-top: 24px; }
       header { margin-bottom: 24px; }
       .artifact-main { min-height: 360px; }
+      .candidate-stage { min-height: 360px; }
+      .regen-status { align-items: flex-start; flex-direction: column; }
+      .runtime-detail { white-space: normal; }
       .source-pass { grid-template-columns: 1fr; padding: 12px; }
       .prompt h2 { font-size: 38px; }
     }
@@ -913,9 +1002,11 @@ HTML = r"""<!doctype html>
     const $ = (id) => document.getElementById(id);
     let view = null;
     let selectedCandidate = null;
+    let candidatePinned = false;
     let pendingSource = '';
     let pendingStyleId = '';
     let runtimePollTimer = null;
+    let runtimeWasBusy = false;
 
     function fileUrl(path) {
       return `/api/file?path=${encodeURIComponent(path)}`;
@@ -969,6 +1060,38 @@ HTML = r"""<!doctype html>
       return view?.run?.status === 'generating';
     }
 
+    function isRuntimeBusy() {
+      return isGenerating() || Boolean(view?.runtime_active);
+    }
+
+    function relativeTime(value) {
+      if (!value) return '';
+      const timestamp = Date.parse(value);
+      if (Number.isNaN(timestamp)) return value;
+      const seconds = Math.max(0, Math.round((Date.now() - timestamp) / 1000));
+      if (seconds < 5) return 'just now';
+      if (seconds < 60) return `${seconds}s ago`;
+      const minutes = Math.round(seconds / 60);
+      if (minutes < 60) return `${minutes}m ago`;
+      const hours = Math.round(minutes / 60);
+      return `${hours}h ago`;
+    }
+
+    function runtimeDetailText() {
+      const run = view?.run || {};
+      const parts = [];
+      if (view?.current_run) parts.push(view.current_run);
+      if (run.runtime) parts.push(run.runtime);
+      if (run.runtime_heartbeat_at) {
+        parts.push(`heartbeat ${relativeTime(run.runtime_heartbeat_at)}`);
+      } else if (run.runtime_started_at) {
+        parts.push(`started ${relativeTime(run.runtime_started_at)}`);
+      } else {
+        parts.push('heartbeat pending');
+      }
+      return parts.join(' · ');
+    }
+
     function defaultRuntimeName() {
       const runtimes = view?.runtimes || [];
       const recommended = runtimes.find((item) => item.available && item.supported && item.recommended);
@@ -1002,7 +1125,7 @@ HTML = r"""<!doctype html>
 
     function selectedArtifact() {
       const items = candidates();
-      return selectedCandidate || items[0]?.path || null;
+      return selectedCandidate || items.at(-1)?.path || null;
     }
 
     async function loadText(path) {
@@ -1014,8 +1137,22 @@ HTML = r"""<!doctype html>
     async function refresh() {
       view = await api('/api/state');
       const run = view.run || {};
-      $('runMeta').textContent = view.current_run ? `${view.current_run} · ${run.status || 'prepared'}` : 'No run yet';
-      selectedCandidate = selectedCandidate || candidates()[0]?.path || null;
+      const busy = isRuntimeBusy();
+      const status = busy ? 'regenerating' : (run.status || 'prepared');
+      $('runMeta').textContent = view.current_run ? `${view.current_run} · ${status}` : 'No run yet';
+      const items = candidates();
+      const paths = new Set(items.map((item) => item.path));
+      if (candidatePinned && selectedCandidate && !paths.has(selectedCandidate)) {
+        candidatePinned = false;
+        selectedCandidate = null;
+      }
+      if (!candidatePinned) {
+        selectedCandidate = busy ? null : (items.at(-1)?.path || null);
+      }
+      if (runtimeWasBusy && !busy && items.length && !$('messageReview').classList.contains('error')) {
+        setMessage('messageReview', 'Refinement complete. Reviewing the newest candidate.');
+      }
+      runtimeWasBusy = busy;
       renderStyleLibrary();
       renderMainArtifact();
       renderThumbs();
@@ -1058,7 +1195,7 @@ HTML = r"""<!doctype html>
     }
 
     function syncRuntimePolling() {
-      if (isGenerating()) {
+      if (isRuntimeBusy()) {
         if (!runtimePollTimer) {
           runtimePollTimer = window.setInterval(() => {
             refresh().catch((error) => setMessage('messageReview', error.message, true));
@@ -1076,20 +1213,26 @@ HTML = r"""<!doctype html>
       const run = view?.run || {};
       const path = selectedArtifact();
       const needsReview = needsSourceReview();
-      const canStartRuntime = !path && !needsReview && view?.source_review?.status === 'confirmed' && !isGenerating() && Boolean(defaultRuntimeName());
+      const busy = isRuntimeBusy();
+      const canStartRuntime = !path && !needsReview && view?.source_review?.status === 'confirmed' && !busy && Boolean(defaultRuntimeName());
       $('reviewTitle').textContent = path
-        ? 'Review the result.'
+        ? busy
+          ? 'Regenerating candidate.'
+          : 'Review the result.'
         : needsReview
           ? 'Review the extracted elements.'
-          : isGenerating()
+          : busy
             ? 'Generating candidate.'
             : 'Waiting for agent output.';
       $('approve').hidden = !path;
-      $('approve').disabled = !path;
+      $('approve').disabled = !path || busy;
       $('loopAgain').hidden = !path;
-      $('loopAgain').disabled = !path || Boolean(view?.runtime_active);
+      $('loopAgain').disabled = !path || busy;
+      $('loopAgain').classList.toggle('loading', Boolean(path && busy));
+      $('loopAgain').innerHTML = path && busy ? '<span class="spinner"></span> Regenerating...' : 'Loop again';
       $('styleName').hidden = !path;
-      $('styleName').disabled = !path;
+      $('styleName').disabled = !path || busy;
+      $('newRun').disabled = busy;
       if (path && $('styleName').dataset.run !== view.current_run) {
         $('styleName').value = run.subject || view.current_run || '';
         $('styleName').dataset.run = view.current_run || '';
@@ -1099,11 +1242,12 @@ HTML = r"""<!doctype html>
       }
       $('confirmSource').hidden = !needsReview;
       $('confirmSource').disabled = !needsReview;
-      $('runtimePicker').hidden = !canStartRuntime && !isGenerating();
+      $('runtimePicker').hidden = !canStartRuntime && !(!path && busy);
       renderRuntimeSelect(canStartRuntime);
-      $('startRuntime').hidden = !canStartRuntime && !isGenerating();
+      $('startRuntime').hidden = !canStartRuntime && !(!path && busy);
       $('startRuntime').disabled = !canStartRuntime;
-      $('startRuntime').textContent = isGenerating() ? 'Generating...' : 'Start runtime';
+      $('startRuntime').classList.toggle('loading', Boolean(!path && busy));
+      $('startRuntime').innerHTML = !path && busy ? '<span class="spinner"></span> Generating...' : 'Start runtime';
       if (needsReview) {
         renderSourceReview();
         return;
@@ -1112,12 +1256,24 @@ HTML = r"""<!doctype html>
         renderWaitingForGeneration();
         return;
       }
-      $('artifactMain').innerHTML = `<a href="${fileUrl(path)}" target="_blank"><img src="${fileUrl(path)}" alt="${path}"></a>`;
+      $('artifactMain').innerHTML = `
+        <div class="candidate-stage">
+          ${busy ? `
+            <div class="regen-status" role="status" aria-live="polite">
+              <strong><span class="spinner"></span> Regenerating</strong>
+              <span class="runtime-detail">${escapeHtml(runtimeDetailText())}</span>
+            </div>
+            <div class="old-candidate">old candidate</div>
+          ` : ''}
+          <a href="${fileUrl(path)}" target="_blank"><img src="${fileUrl(path)}" alt="${path}"></a>
+        </div>
+      `;
     }
 
     function renderWaitingForGeneration() {
       const sheet = view.files?.review_contact_sheet || view.files?.contact_sheet;
-      const text = isGenerating()
+      const busy = isRuntimeBusy();
+      const text = busy
         ? 'Generating is in progress. This screen will show the candidate when files land in the run folder.'
         : 'Source elements are confirmed. No generator is running in this UI yet; start an agent with the brief, then refresh.';
       $('artifactMain').innerHTML = `
@@ -1128,7 +1284,10 @@ HTML = r"""<!doctype html>
               <a href="${fileUrl(sheet)}" target="_blank"><img src="${fileUrl(sheet)}" alt="reviewed contact sheet"></a>
             </div>
           ` : ''}
-          <div class="empty">${text}</div>
+          <div class="empty ${busy ? 'busy' : ''}">
+            ${busy ? '<span class="spinner"></span>' : ''}
+            <span>${escapeHtml(text)}${busy ? `<br>${escapeHtml(runtimeDetailText())}` : ''}</span>
+          </div>
         </div>
       `;
     }
@@ -1184,14 +1343,16 @@ HTML = r"""<!doctype html>
         $('thumbs').innerHTML = '';
         return;
       }
+      const selected = selectedArtifact();
       $('thumbs').innerHTML = items.map((item) => `
-        <button class="thumb ${item.path === selectedCandidate ? 'selected' : ''}" data-candidate="${item.path}" title="${item.name}">
+        <button class="thumb ${item.path === selected ? 'selected' : ''}" data-candidate="${item.path}" title="${item.name}">
           <img src="${fileUrl(item.path)}" alt="${item.name}">
         </button>
       `).join('');
       document.querySelectorAll('[data-candidate]').forEach((button) => {
         button.onclick = () => {
           selectedCandidate = button.dataset.candidate;
+          candidatePinned = true;
           renderMainArtifact();
           renderThumbs();
         };
@@ -1229,6 +1390,7 @@ HTML = r"""<!doctype html>
           body: JSON.stringify(body)
         });
         selectedCandidate = null;
+        candidatePinned = false;
         pendingStyleId = '';
         await refresh();
         screen('Review');
@@ -1262,6 +1424,8 @@ HTML = r"""<!doctype html>
 
     async function loopAgain() {
       $('loopAgain').disabled = true;
+      selectedCandidate = null;
+      candidatePinned = false;
       const runtime = $('runtimeSelect').value || defaultRuntimeName();
       setMessage('messageReview', `Starting another ${runtime} pass...`);
       try {
@@ -1270,7 +1434,7 @@ HTML = r"""<!doctype html>
           body: JSON.stringify({runtime})
         });
         await refresh();
-        setMessage('messageReview', 'Refinement started. The current candidate stays visible until new files replace it.');
+        setMessage('messageReview', 'Refinement started. This page will keep polling and switch to the newest candidate when it lands.');
       } catch (error) {
         setMessage('messageReview', error.message, true);
       } finally {
@@ -1293,6 +1457,8 @@ HTML = r"""<!doctype html>
             style_notes: $('styleNotes')?.value || ''
           })
         });
+        selectedCandidate = null;
+        candidatePinned = false;
         await refresh();
         setMessage('messageReview', 'Source elements confirmed. Generate a candidate from the agent brief.');
       } catch (error) {
@@ -1304,6 +1470,8 @@ HTML = r"""<!doctype html>
 
     async function startRuntime() {
       $('startRuntime').disabled = true;
+      selectedCandidate = null;
+      candidatePinned = false;
       const runtime = $('runtimeSelect').value || defaultRuntimeName();
       setMessage('messageReview', `Starting ${runtime} runtime...`);
       try {
@@ -1337,6 +1505,7 @@ HTML = r"""<!doctype html>
       pendingStyleId = '';
       pendingSource = '';
       selectedCandidate = null;
+      candidatePinned = false;
       screen('Source');
       $('sourceUrl').focus();
     };
