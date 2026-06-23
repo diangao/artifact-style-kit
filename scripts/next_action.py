@@ -80,6 +80,24 @@ def recommend(run: dict) -> dict[str, str]:
             "why": "Cutouts exist; build a comparison sheet for visual judgment.",
         }
 
+    if status == "candidate_ready":
+        return {
+            "command": "Review the candidate in the UI, then accept it or revise the prompt for another iteration.",
+            "why": "Generated candidates, transparent cutouts, and the comparison sheet are present.",
+        }
+
+    if status == "locked":
+        return {
+            "command": "Use the locked style artifact or start a new run.",
+            "why": "A candidate has already been accepted for this run.",
+        }
+
+    if status == "runtime_failed":
+        return {
+            "command": f"Read {files.get('run_dir')}/agent-runtime.log and {files.get('run_dir')}/runtime-error.md if present.",
+            "why": "The selected runtime failed before producing a reviewable candidate.",
+        }
+
     return {
         "command": f"Update {files.get('taste_notes')} with matches, drift, and next prompt constraints.",
         "why": "Comparison artifacts exist; the next step is taste judgment.",
