@@ -475,10 +475,11 @@ HTML = r"""<!doctype html>
 
     function renderMainArtifact() {
       const path = selectedArtifact();
+      $('reviewTitle').textContent = path ? 'Review the result.' : 'Ready for agent generation.';
+      $('approve').hidden = !path;
       $('approve').disabled = !path;
-      $('approve').textContent = path ? 'Looks right' : 'Waiting for candidate';
       if (!path) {
-        $('artifactMain').innerHTML = '<div class="empty">Run prepared. Generate a candidate, then refresh.</div>';
+        $('artifactMain').innerHTML = '<div class="empty">The source bundle is ready. Generate a candidate from the agent brief, then refresh.</div>';
         return;
       }
       $('artifactMain').innerHTML = `<a href="${fileUrl(path)}" target="_blank"><img src="${fileUrl(path)}" alt="${path}"></a>`;
@@ -534,7 +535,7 @@ HTML = r"""<!doctype html>
         selectedCandidate = null;
         await refresh();
         screen('Review');
-        setMessage('messageReview', 'Run prepared. Refresh after the candidate lands.');
+        setMessage('messageReview', 'Ready for agent generation. Refresh after the candidate lands.');
       } catch (error) {
         setMessage('messageTarget', error.message, true);
       } finally {
