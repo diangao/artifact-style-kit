@@ -29,7 +29,7 @@ To run the local visual loop yourself:
 python3 scripts/stylekit_ui.py
 ```
 
-Then open the printed localhost URL. The main UI is deliberately two steps: paste one style source link, then describe one target asset. It prepares the run, shows the primary candidate or comparison, and writes `locked_style` to `.style-kit-state.json` when you approve a candidate. Runtime details, contact sheets, and generated briefs stay behind debug details.
+Then open the printed localhost URL. The main UI is deliberately two steps: paste one style source link, then describe one target asset. It prepares the run, waits for generated candidates on the review screen, and writes `locked_style` to `.style-kit-state.json` when you approve a candidate. Runtime details, contact sheets, and generated briefs stay behind debug details.
 
 If you are running the toolkit yourself, the underlying flow is:
 
@@ -97,6 +97,11 @@ python3 scripts/prepare_agent_run.py \
   --subject "one ripe mango with a small green leaf" \
   --reference-dir data/reference-assets
 ```
+
+Not every style is in downloadable PNG assets. For typography, spacing, layout,
+glass/material treatment, motion, or interaction style, capture page/component
+screenshots and put those screenshots in the reference folder. Use the asset
+collector as one evidence source, not the whole style source.
 
 For the agent-facing contract, see `AGENTS.md`.
 For the full input/output diagram, see `docs/agent-first-contract.md`.

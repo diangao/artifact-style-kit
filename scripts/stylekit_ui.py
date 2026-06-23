@@ -452,9 +452,9 @@ HTML = r"""<!doctype html>
       return [...(view?.artifacts?.cutouts || []), ...(view?.artifacts?.generated || [])];
     }
 
-    function bestArtifact() {
+    function selectedArtifact() {
       const items = candidates();
-      return selectedCandidate || items[0]?.path || view?.files?.comparison || view?.files?.contact_sheet || null;
+      return selectedCandidate || items[0]?.path || null;
     }
 
     async function loadText(path) {
@@ -474,8 +474,9 @@ HTML = r"""<!doctype html>
     }
 
     function renderMainArtifact() {
-      const path = bestArtifact();
-      $('approve').disabled = !selectedCandidate;
+      const path = selectedArtifact();
+      $('approve').disabled = !path;
+      $('approve').textContent = path ? 'Looks right' : 'Waiting for candidate';
       if (!path) {
         $('artifactMain').innerHTML = '<div class="empty">Run prepared. Generate a candidate, then refresh.</div>';
         return;

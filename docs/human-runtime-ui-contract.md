@@ -39,7 +39,7 @@ STEP 2: TARGET
         v
 
 REVIEW RESULT
-  launcher shows the primary candidate, comparison, or waiting state
+  launcher shows a waiting state until a generated candidate exists
   user approves, refreshes, or starts a new run
 
         v
@@ -100,7 +100,7 @@ Optional advanced/debug inputs:
 The main UI should display:
 
 - the primary generated candidate, when present
-- otherwise `comparison.jpg`, `contact-sheet.jpg`, or a clear waiting state
+- otherwise a clear waiting state
 - thumbnail candidate choices, when multiple candidates exist
 - approve, refresh, and new-run controls
 

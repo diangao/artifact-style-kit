@@ -7,7 +7,7 @@ clone the repo, prepare a run, and iterate with visible artifacts.
 Keep the loop inspectable:
 
 ```text
-source URL -> reference assets -> contact sheet -> prompt -> generated image -> transparent cutout -> comparison -> taste notes -> next prompt
+source URL -> reference evidence -> contact sheet -> prompt -> generated image -> transparent cutout -> comparison -> taste notes -> next prompt
 ```
 
 ## Bootstrap From A Human Prompt
@@ -54,6 +54,13 @@ python3 scripts/prepare_agent_run.py \
   --subject "<object or asset to generate>" \
   --reference-dir <folder-with-reference-images>
 ```
+
+Some style is not in downloadable PNG assets. Typography, spacing, layout,
+glass/material treatment, and motion usually live in screenshots, CSS, and DOM
+structure. In that case, capture the page or component screenshots yourself,
+put those screenshots in a reference folder, and use `--reference-dir`. Note the
+non-image style cues in `taste-notes.md` so the generator does not overfit to
+only the harvested asset PNGs.
 
 ## Canonical Entry Point
 
