@@ -10,11 +10,13 @@ from __future__ import annotations
 import argparse
 import json
 import mimetypes
+import os
 import re
 import shutil
 import subprocess
 import sys
 import urllib.parse
+from datetime import datetime, timezone
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -41,6 +43,15 @@ def load_json(path: Path) -> dict[str, Any]:
 
 def save_json(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2) + "\n")
+
+
+def utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def slugify(value: str) -> str:
+    slug = re.sub(r"[^a-zA-Z0-9._-]+", "-", value.strip()).strip("-").lower()
+    return slug or "style"
 
 
 def repo_path(value: str | None) -> Path:
@@ -106,6 +117,55 @@ def image_files(value: str | None) -> list[dict[str, str]]:
         if item.is_file() and item.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp", ".gif", ".avif"}
     )
     return [{"name": item.name, "path": rel(item)} for item in paths]
+
+
+def process_is_running(pid: Any) -> bool:
+    try:
+        value = int(pid)
+    except (TypeError, ValueError):
+        return False
+    if value <= 0:
+        return False
+    try:
+        os.kill(value, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def sync_artifact_state(
+    state: dict[str, Any],
+    current_run: str | None,
+    run: dict[str, Any],
+    artifacts: dict[str, list[dict[str, str]]],
+    files: dict[str, Any],
+) -> dict[str, Any]:
+    if not current_run or not run:
+        return run
+    comparison = bool(files.get("comparison") and repo_path(files.get("comparison")).exists())
+    has_generated = bool(artifacts.get("generated"))
+    has_cutouts = bool(artifacts.get("cutouts"))
+    updates: dict[str, Any] = {}
+    if run.get("has_generated") != has_generated:
+        updates["has_generated"] = has_generated
+    if run.get("has_cutouts") != has_cutouts:
+        updates["has_cutouts"] = has_cutouts
+    if run.get("has_comparison") != comparison:
+        updates["has_comparison"] = comparison
+    terminal_statuses = {"locked", "runtime_failed"}
+    if run.get("status") not in terminal_statuses and (has_cutouts or has_generated):
+        updates["status"] = "candidate_ready"
+        updates["recommended_next"] = {
+            "command": "Review the candidate in the UI, then lock the style or loop again.",
+            "why": "Generated files have landed in the run folder.",
+        }
+    if updates:
+        run.update(updates)
+        state.setdefault("runs", {})[current_run] = run
+        save_json(STATE_PATH, state)
+    return run
 
 
 def default_source_review(run: dict[str, Any]) -> dict[str, Any]:
@@ -174,6 +234,7 @@ def current_view() -> dict[str, Any]:
         "generated": image_files(files.get("generated_dir")),
         "cutouts": image_files(files.get("cutouts_dir")),
     }
+    run = sync_artifact_state(state, current_run, run, artifacts, files)
     key_files = {
         key: rel(files.get(key))
         for key in [
@@ -205,6 +266,8 @@ def current_view() -> dict[str, Any]:
         "source_review": source_review,
         "files": key_files,
         "artifacts": artifacts,
+        "locked_styles": state.get("locked_styles", []),
+        "runtime_active": process_is_running(run.get("runtime_pid")),
         "next_action": run_next_action(),
     }
 
@@ -267,6 +330,7 @@ def lock_style(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     candidate_path = repo_path(candidate)
     if not candidate_path.exists():
         return nowish_error("candidate_path does not exist", 404)
+    style_name = str(payload.get("style_name", "")).strip()
 
     state = load_json(STATE_PATH)
     current_run = state.get("current_run")
@@ -274,11 +338,24 @@ def lock_style(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     if not run:
         return nowish_error("no current run to lock")
     files = run.get("files", {})
+    if not style_name:
+        style_name = str(run.get("subject") or current_run or "Untitled style")
+    existing_ids = {item.get("id") for item in state.get("locked_styles", []) if isinstance(item, dict)}
+    base_id = slugify(style_name)
+    style_id = base_id
+    suffix = 2
+    while style_id in existing_ids:
+        style_id = f"{base_id}-{suffix}"
+        suffix += 1
     locked = {
+        "id": style_id,
+        "name": style_name,
         "source_url": run.get("source_url"),
         "subject": run.get("subject"),
         "run_name": current_run,
+        "reference_dir": rel(files.get("reference_dir")) if files.get("reference_dir") else None,
         "contact_sheet": rel(files.get("contact_sheet")),
+        "review_contact_sheet": rel(files.get("review_contact_sheet")) if files.get("review_contact_sheet") else None,
         "source_review": rel(files.get("source_review")) if files.get("source_review") else None,
         "accepted_candidate": rel(candidate_path),
         "prompt": rel(files.get("prompt")),
@@ -286,11 +363,95 @@ def lock_style(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         "reference_manifest": rel(files.get("assets_manifest")) if files.get("assets_manifest") else None,
         "key_color": str(payload.get("key_color") or "ff00ff"),
         "locked_by": "stylekit_ui",
+        "created_at": utc_now(),
     }
     state["locked_style"] = locked
+    styles = [item for item in state.get("locked_styles", []) if isinstance(item, dict)]
+    styles = [item for item in styles if item.get("id") != style_id]
+    styles.append(locked)
+    state["locked_styles"] = styles
     state.setdefault("runs", {}).setdefault(current_run, {}).update({"status": "locked", "accepted_candidate": rel(candidate_path)})
     save_json(STATE_PATH, state)
     return 200, {"status": "ok", "locked_style": locked, "view": current_view()}
+
+
+def prepare_from_style(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+    style_id = str(payload.get("style_id", "")).strip()
+    subject = str(payload.get("subject", "")).strip()
+    if not style_id:
+        return nowish_error("style_id is required")
+    if not subject:
+        return nowish_error("target is required")
+
+    state = load_json(STATE_PATH)
+    styles = [item for item in state.get("locked_styles", []) if isinstance(item, dict)]
+    style = next((item for item in styles if item.get("id") == style_id), None)
+    if not style:
+        return nowish_error("style not found", 404)
+    reference_dir = style.get("reference_dir")
+    if not reference_dir:
+        return nowish_error("locked style has no reference_dir", 422)
+
+    try:
+        max_iterations = int(payload.get("max_iterations") or 5)
+    except (TypeError, ValueError):
+        return nowish_error("max_iterations must be a number")
+
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "scripts/prepare_agent_run.py",
+            "--subject",
+            subject,
+            "--reference-dir",
+            str(repo_path(reference_dir)),
+            "--max-iterations",
+            str(max_iterations),
+        ],
+        cwd=REPO_ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        status, message = prepare_error_message(proc.stdout, proc.stderr)
+        return status, {"status": "error", "error": message, "stdout": proc.stdout, "stderr": proc.stderr}
+
+    state = load_json(STATE_PATH)
+    current_run = state.get("current_run")
+    run = state.get("runs", {}).get(current_run, {}) if current_run else {}
+    files = run.get("files", {})
+    review = load_json(repo_path(style.get("source_review"))) if style.get("source_review") else default_source_review(run)
+    ignored = [str(item) for item in review.get("ignored_reference_assets", []) if str(item)]
+    review.update(
+        {
+            "status": "confirmed",
+            "subject": subject,
+            "source_url": f"locked style: {style.get('name')}",
+            "review_goal": f"Reuse locked style '{style.get('name')}' for the new target.",
+            "ignored_reference_assets": ignored,
+        }
+    )
+    review_path = repo_path(files.get("source_review"))
+    save_json(review_path, review)
+    review_contact_sheet = write_review_contact_sheet(files, ignored)
+    if review_contact_sheet:
+        files["review_contact_sheet"] = review_contact_sheet
+    state.setdefault("runs", {}).setdefault(current_run, {}).update(
+        {
+            "source_review_status": "confirmed",
+            "status": "source_reviewed",
+            "using_locked_style": style.get("id"),
+            "source_url": f"locked style: {style.get('name')}",
+            "files": files,
+            "recommended_next": {
+                "command": f"Read {files.get('agent_brief')} and generate candidates from {files.get('prompt')}.",
+                "why": "A locked style is selected; generate the new target from that style evidence.",
+            },
+        }
+    )
+    save_json(STATE_PATH, state)
+    return 200, {"status": "ok", "style": style, "view": current_view()}
 
 
 def start_runtime(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
@@ -312,6 +473,8 @@ def start_runtime(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         return nowish_error("confirm source elements before starting generation")
     if run.get("status") == "generating":
         return nowish_error("generation is already running")
+    if process_is_running(run.get("runtime_pid")):
+        return nowish_error("runtime is still finishing; refresh in a moment before looping again", 409)
 
     files = run.get("files", {})
     log_path = repo_path(files.get("run_dir")) / "agent-runtime.launch.log"
@@ -495,8 +658,40 @@ HTML = r"""<!doctype html>
       color: var(--muted);
       font-size: 13px;
     }
+    .style-name {
+      width: 190px;
+      min-height: 44px;
+      padding: 0 12px;
+      font-size: 15px;
+    }
     .message { min-height: 22px; color: var(--muted); font-size: 13px; }
     .message.error { color: var(--bad); }
+    .style-library {
+      display: grid;
+      gap: 10px;
+      border-top: 1px solid var(--line);
+      padding-top: 14px;
+    }
+    .style-library h3 { margin: 0; font-size: 13px; color: var(--muted); font-weight: 600; }
+    .style-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+    .style-card {
+      display: grid;
+      grid-template-columns: 48px 1fr;
+      gap: 10px;
+      align-items: center;
+      min-height: 70px;
+      padding: 10px;
+      text-align: left;
+    }
+    .style-card img { width: 48px; height: 48px; object-fit: contain; border-radius: 6px; background: var(--soft); }
+    .style-card strong, .style-card span {
+      display: block;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .style-card span { color: var(--muted); font-size: 12px; margin-top: 2px; }
     .review { display: grid; gap: 18px; }
     .review-head { display: flex; justify-content: space-between; align-items: end; gap: 16px; flex-wrap: wrap; }
     .review-head h2 { margin: 0; font-size: 24px; line-height: 1.15; }
@@ -630,6 +825,7 @@ HTML = r"""<!doctype html>
           <label for="sourceUrl">Source URL</label>
           <input id="sourceUrl" placeholder="https://example.com/style-source" autocomplete="off" autofocus>
         </div>
+        <div id="styleLibrary" class="style-library" hidden></div>
         <div class="actions">
           <button id="toTarget" class="primary">Next</button>
         </div>
@@ -668,7 +864,9 @@ HTML = r"""<!doctype html>
               <select id="runtimeSelect"></select>
             </label>
             <button id="startRuntime" class="primary">Start runtime</button>
-            <button id="approve" class="primary">Looks right</button>
+            <button id="loopAgain">Loop again</button>
+            <input id="styleName" class="style-name" placeholder="Style name">
+            <button id="approve" class="primary">Lock style</button>
           </div>
         </div>
         <div id="artifactMain" class="artifact-main"></div>
@@ -705,6 +903,7 @@ HTML = r"""<!doctype html>
     let view = null;
     let selectedCandidate = null;
     let pendingSource = '';
+    let pendingStyleId = '';
     let runtimePollTimer = null;
 
     function fileUrl(path) {
@@ -745,6 +944,10 @@ HTML = r"""<!doctype html>
 
     function candidates() {
       return [...(view?.artifacts?.cutouts || []), ...(view?.artifacts?.generated || [])];
+    }
+
+    function lockedStyles() {
+      return Array.isArray(view?.locked_styles) ? view.locked_styles : [];
     }
 
     function needsSourceReview() {
@@ -802,10 +1005,45 @@ HTML = r"""<!doctype html>
       const run = view.run || {};
       $('runMeta').textContent = view.current_run ? `${view.current_run} · ${run.status || 'prepared'}` : 'No run yet';
       selectedCandidate = selectedCandidate || candidates()[0]?.path || null;
+      renderStyleLibrary();
       renderMainArtifact();
       renderThumbs();
       await renderDebug();
       syncRuntimePolling();
+    }
+
+    function renderStyleLibrary() {
+      const styles = lockedStyles();
+      const library = $('styleLibrary');
+      if (!styles.length) {
+        library.hidden = true;
+        library.innerHTML = '';
+        return;
+      }
+      library.hidden = false;
+      library.innerHTML = `
+        <h3>Saved styles</h3>
+        <div class="style-grid">
+          ${styles.map((style) => `
+            <button class="style-card" data-style="${escapeHtml(style.id)}" title="${escapeHtml(style.name || style.id)}">
+              ${style.accepted_candidate ? `<img src="${fileUrl(style.accepted_candidate)}" alt="">` : '<span></span>'}
+              <span>
+                <strong>${escapeHtml(style.name || style.id)}</strong>
+                <span>${escapeHtml(style.subject || style.run_name || '')}</span>
+              </span>
+            </button>
+          `).join('')}
+        </div>
+      `;
+      document.querySelectorAll('[data-style]').forEach((button) => {
+        button.onclick = () => {
+          pendingStyleId = button.dataset.style || '';
+          pendingSource = '';
+          setMessage('messageSource', '');
+          screen('Target');
+          $('subject').focus();
+        };
+      });
     }
 
     function syncRuntimePolling() {
@@ -824,6 +1062,7 @@ HTML = r"""<!doctype html>
     }
 
     function renderMainArtifact() {
+      const run = view?.run || {};
       const path = selectedArtifact();
       const needsReview = needsSourceReview();
       const canStartRuntime = !path && !needsReview && view?.source_review?.status === 'confirmed' && !isGenerating() && Boolean(defaultRuntimeName());
@@ -836,6 +1075,17 @@ HTML = r"""<!doctype html>
             : 'Waiting for agent output.';
       $('approve').hidden = !path;
       $('approve').disabled = !path;
+      $('loopAgain').hidden = !path;
+      $('loopAgain').disabled = !path || Boolean(view?.runtime_active);
+      $('styleName').hidden = !path;
+      $('styleName').disabled = !path;
+      if (path && $('styleName').dataset.run !== view.current_run) {
+        $('styleName').value = run.subject || view.current_run || '';
+        $('styleName').dataset.run = view.current_run || '';
+      }
+      if (!path) {
+        $('styleName').dataset.run = '';
+      }
       $('confirmSource').hidden = !needsReview;
       $('confirmSource').disabled = !needsReview;
       $('runtimePicker').hidden = !canStartRuntime && !isGenerating();
@@ -958,18 +1208,20 @@ HTML = r"""<!doctype html>
       $('prepare').disabled = true;
       setMessage('messageTarget', 'Preparing...');
       try {
-        await api('/api/prepare', {
+        const usingStyle = Boolean(pendingStyleId);
+        const endpoint = usingStyle ? '/api/prepare-from-style' : '/api/prepare';
+        const body = usingStyle
+          ? {style_id: pendingStyleId, subject, max_iterations: 5}
+          : {source_url: source, subject, max_iterations: 5};
+        await api(endpoint, {
           method: 'POST',
-          body: JSON.stringify({
-            source_url: source,
-            subject,
-            max_iterations: 5
-          })
+          body: JSON.stringify(body)
         });
         selectedCandidate = null;
+        pendingStyleId = '';
         await refresh();
         screen('Review');
-        setMessage('messageReview', 'Review the extracted elements before generation.');
+        setMessage('messageReview', usingStyle ? 'Locked style selected. Generate a candidate.' : 'Review the extracted elements before generation.');
       } catch (error) {
         setMessage('messageTarget', error.message, true);
       } finally {
@@ -983,7 +1235,10 @@ HTML = r"""<!doctype html>
       try {
         await api('/api/lock', {
           method: 'POST',
-          body: JSON.stringify({candidate_path: selectedCandidate})
+          body: JSON.stringify({
+            candidate_path: selectedCandidate,
+            style_name: $('styleName').value.trim()
+          })
         });
         await refresh();
         setMessage('messageReview', 'Style locked.');
@@ -991,6 +1246,24 @@ HTML = r"""<!doctype html>
         setMessage('messageReview', error.message, true);
       } finally {
         $('approve').disabled = false;
+      }
+    }
+
+    async function loopAgain() {
+      $('loopAgain').disabled = true;
+      const runtime = $('runtimeSelect').value || defaultRuntimeName();
+      setMessage('messageReview', `Starting another ${runtime} pass...`);
+      try {
+        await api('/api/generate', {
+          method: 'POST',
+          body: JSON.stringify({runtime})
+        });
+        await refresh();
+        setMessage('messageReview', 'Refinement started. The current candidate stays visible until new files replace it.');
+      } catch (error) {
+        setMessage('messageReview', error.message, true);
+      } finally {
+        renderMainArtifact();
       }
     }
 
@@ -1042,17 +1315,25 @@ HTML = r"""<!doctype html>
         setMessage('messageSource', 'Paste one source URL.', true);
         return;
       }
+      pendingStyleId = '';
       pendingSource = value;
       setMessage('messageSource', '');
       screen('Target');
       $('subject').focus();
     };
     $('backToSource').onclick = () => screen('Source');
-    $('newRun').onclick = () => screen('Source');
+    $('newRun').onclick = () => {
+      pendingStyleId = '';
+      pendingSource = '';
+      selectedCandidate = null;
+      screen('Source');
+      $('sourceUrl').focus();
+    };
     $('prepare').onclick = prepare;
     $('refresh').onclick = () => refresh().catch((error) => setMessage('messageReview', error.message, true));
     $('confirmSource').onclick = confirmSource;
     $('startRuntime').onclick = startRuntime;
+    $('loopAgain').onclick = loopAgain;
     $('approve').onclick = lock;
 
     refresh()
@@ -1132,6 +1413,10 @@ class Handler(BaseHTTPRequestHandler):
             return
         if parsed.path == "/api/prepare":
             status, response = prepare_run(payload)
+            self.send_json(status, response)
+            return
+        if parsed.path == "/api/prepare-from-style":
+            status, response = prepare_from_style(payload)
             self.send_json(status, response)
             return
         if parsed.path == "/api/lock":
