@@ -1,33 +1,34 @@
 # Taste Notes
 
-Subject: cover thumbnail: one ripe mango with a small green leaf rendered as Disco-shell icon
-Source URL: manual reference folder
+Subject: cover thumbnail: the original compact gray dog SVG object with unchanged silhouette, angled closed eyes, black muzzle, rounded rectangular body, and small top-left handle/ear rendered as Disco-shell icon
+Source URL: manual/reference evidence folder
 Max iterations: 1
 
 ## Human Feedback Driving This Pass
 
-- Prior seed covers had valid provenance but were not Q/cute enough and were not close enough to the reference treatments.
-- This pass replaces the generic first-pass render with a shared-grid crop that makes the mango squat, rounded, toy-like, and more visibly tied to the source treatment at thumbnail size.
+- The prior dog sheet changed the object identity; the dog should stay the original dog from the supplied SVG.
+- The active shelf now preserves the original dog geometry and changes only treatment/material/context across seed styles.
+- The previous mango shelf remains preserved at commit `9c8e351`.
 
 ## What Matches
 
-- Keeps the same mango target across the seed shelf, so users compare style rather than subject.
-- Uses stronger cute/Q proportions: rounded compact body, simplified charm, soft face/object language where appropriate.
-- Quotes the selected source treatment more directly at thumbnail scale instead of using a generic mango render.
+- Keeps the same original dog object across the seed shelf, so users compare style rather than subject.
+- Preserves the supplied SVG's silhouette, angled closed eyes, black muzzle, rounded body, and top-left handle/ear.
+- Quotes the selected source treatment through material, texture, lighting, and surrounding context without redesigning the dog.
 
 ## What Still Drifts
 
 - This is still a seed-cover artifact, not a fully locked production style.
-- The cover is cropped from a shared 4x2 generated grid, so final production runs should still use the run's own source review and reference assets.
+- The cover is cropped from a shared 4x2 rendered grid, so final production runs should still use the run's own source review and reference assets.
 
 ## Next Prompt Constraints
 
-- Similarity is mandatory: borrow the source treatment's silhouette logic, material, edge language, and layout, not just a broad aesthetic label.
-- Q/cuteness is mandatory for seed covers: squat proportions, compact charm, and thumbnail readability.
-- Avoid tall realistic fruit, photoreal product lighting, and generic stock-icon polish unless the source itself demands it.
+- Original dog geometry is mandatory: no redrawing, squashing, extra rounding, or mascot redesign.
+- Similarity is mandatory: borrow the source treatment's material, edge language, and layout, not just a broad aesthetic label.
+- The treatment can alter fill, texture, lighting, context, and UI/background environment only.
 
 ## Decision
 
-- [x] keep as second-pass seed cover candidate
+- [x] keep as original-dog seed cover candidate
 - [ ] revise
 - [ ] discard

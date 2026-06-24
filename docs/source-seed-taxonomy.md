@@ -20,11 +20,14 @@ material rule, layout rule, or interaction rule that can survive a new target.
 ## Seed Cover Contract
 
 The seed shelf covers are generated artifacts, not generic icons. Each cover
-uses the same target, "one ripe mango with a small green leaf", so the shelf
-compares style treatment instead of subject matter.
-Seed-cover candidates should be rejected if they merely render a generic mango
-in a broad aesthetic; they need both Q/cute thumbnail proportions and a clear
-likeness to the source treatment's silhouette, material, edge, and layout logic.
+uses the same dog object target from `examples/seed-covers/dog-object-source.svg`,
+so the shelf compares style treatment instead of subject matter. The dog
+geometry must stay original: do not redraw, squash, extra-round, or mascot-ify
+the supplied object. The previous mango shelf is preserved as checkpoint commit
+`9c8e351`.
+Seed-cover candidates should be rejected if they merely render a generic object
+in a broad aesthetic; they need original-object preservation plus a clear
+likeness to the source treatment's material, edge, lighting, and layout logic.
 
 Cover provenance is recorded in `examples/seed-covers/cover-manifest.json`.
 Each entry points to a `outputs/runs/seed-cover-*` run with:
@@ -33,7 +36,8 @@ Each entry points to a `outputs/runs/seed-cover-*` run with:
 - a source `contact-sheet.jpg`
 - confirmed `source-review.json`
 - `prompt.txt`, `taste-notes.md`, and `run.json`
-- a generated mango cover candidate in `generated/`
+- a generated dog-object cover candidate in `generated/`
+
 
 ## Selection Rule
 

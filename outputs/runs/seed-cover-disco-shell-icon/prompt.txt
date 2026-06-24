@@ -1,31 +1,12 @@
-Use the contact sheet as visual evidence, then follow the reviewed source-element contract in `outputs/runs/seed-cover-disco-shell-icon/source-review.json`. Create one small standalone visual asset: cover thumbnail: one ripe mango with a small green leaf rendered as Disco-shell icon.
+Use the contact sheet as visual evidence, then follow the reviewed source-element contract in `outputs/runs/seed-cover-disco-shell-icon/source-review.json`. Create one small standalone visual asset: cover thumbnail: the original compact gray dog SVG object with unchanged silhouette, angled closed eyes, black muzzle, rounded rectangular body, and small top-left handle/ear rendered as Disco-shell icon.
 
-Before generation:
-- Read the source review.
-- Use the confirmed contact-sheet elements as the evidence set.
-- Treat `ignored_reference_assets` and `missing_reference_notes` as constraints.
-- If the source review is still `draft`, stop and ask for a human extraction pass before generating.
-
-Style constraints:
-- Q/cute seed-cover proportions are mandatory: squat rounded body, compact charm, and thumbnail readability
-- source likeness is mandatory: borrow the source treatment's silhouette logic, material, edge language, layout, and object grammar
-- keep the mango target constant, but change the treatment strongly enough that this seed is recognizable at shelf-card size
+Hard constraints:
+- preserve the exact dog object geometry from `examples/seed-covers/dog-object-source.svg`
+- do not redraw, squash, round further, or redesign the dog; keep the original silhouette, eyes, muzzle, handle/ear, and black outline
+- treatment may change fill material, surface texture, lighting, background, and surrounding scene only
+- borrow the source treatment's silhouette logic, material, edge language, and layout, not just a broad aesthetic label
+- keep the dog object target constant, but change the treatment strongly enough that this seed is recognizable at shelf-card size
 - compact centered cover asset with generous padding around the subject
-- aligned palette, texture, detail level, and edge treatment from the reference sheet
+- no text, no watermark, no extra logo, no mockup caption
 
-Avoid:
-- tall realistic fruit silhouette
-- photoreal product lighting unless the source is photorealistic
-- glossy over-rendered 3D unless the source is glossy
-- generic stock icon feel
-- broad aesthetic labels without specific source-treatment likeness
-- text, labels, watermark, or logo marks unless requested
-
-Background contract:
-- Put the subject on a perfectly flat solid #ff00ff chroma-key background for background removal.
-- Do not use #ff00ff anywhere in the subject.
-- No cast shadow, gradient, texture, floor plane, or reflection in the background.
-
-Loop contract:
-- Iterate at most 1 times before stopping for review.
-- Prefer a clearly reviewable candidate over endless refinement.
+This run produces a seed-cover thumbnail only. Final production runs should still use the run's own source review and reference assets.

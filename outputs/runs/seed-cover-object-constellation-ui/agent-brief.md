@@ -1,6 +1,6 @@
 # Agent Brief
 
-Subject: cover thumbnail: one ripe mango with a small green leaf rendered as Object constellation UI
+Subject: cover thumbnail: the original compact gray dog SVG object with unchanged silhouette, angled closed eyes, black muzzle, rounded rectangular body, and small top-left handle/ear rendered as Object constellation UI
 Source URL: manual reference folder
 Stop rule: stop after 1 iterations or when a human approves a candidate.
 

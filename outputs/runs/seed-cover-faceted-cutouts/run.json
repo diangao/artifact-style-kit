@@ -1,6 +1,6 @@
 {
   "run_name": "seed-cover-faceted-cutouts",
-  "subject": "cover thumbnail: one ripe mango with a small green leaf rendered as Faceted object cutouts",
+  "subject": "cover thumbnail: the original compact gray dog SVG object with unchanged silhouette, angled closed eyes, black muzzle, rounded rectangular body, and small top-left handle/ear rendered as Faceted object cutouts",
   "source_url": null,
   "reference_dir": "outputs/runs/seed-cover-faceted-cutouts/reference-assets",
   "reference_count": 2,
@@ -25,11 +25,14 @@
   "next_action": "Review outputs/runs/seed-cover-faceted-cutouts/source-review.json and confirm/delete/supplement extracted elements before generation.",
   "status": "candidate_ready",
   "source_review_status": "confirmed",
-  "generated_cover": "outputs/runs/seed-cover-faceted-cutouts/generated/faceted-cutouts-mango-cover.png",
+  "generated_cover": "outputs/runs/seed-cover-faceted-cutouts/generated/faceted-cutouts-dog-cover.png",
   "has_generated": true,
   "has_comparison": true,
-  "quality_pass": "second_pass_q_similarity",
-  "source_grid": "examples/seed-covers/q-cute-mango-grid.png",
+  "quality_pass": "dog_original_geometry_treatments",
+  "source_grid": "examples/seed-covers/original-dog-style-grid.png",
   "source_grid_tile_index": 1,
-  "updated_reason": "Replaced first-pass generic mango render after human feedback: covers were not Q/cute enough and not close enough to their sources."
+  "updated_reason": "Replaced the redrawn dog render with an SVG-preserving pass: the dog geometry stays original and only treatment/material/context changes.",
+  "object_source": "examples/seed-covers/dog-object-source.svg",
+  "previous_mango_checkpoint": "9c8e351",
+  "object_source_preview": "examples/seed-covers/dog-object-source.png"
 }
