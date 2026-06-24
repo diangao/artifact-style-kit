@@ -7,17 +7,18 @@ Before generation:
 - If the source review is still `draft`, stop and ask for a human extraction pass before generating.
 
 Style constraints:
-- handmade object asset
-- compact centered cutout
-- consistent viewpoint with the reference sheet
-- aligned palette, texture, detail level, and edge treatment
-- generous padding around the subject
+- Q/cute seed-cover proportions are mandatory: squat rounded body, compact charm, and thumbnail readability
+- source likeness is mandatory: borrow the source treatment's silhouette logic, material, edge language, layout, and object grammar
+- keep the mango target constant, but change the treatment strongly enough that this seed is recognizable at shelf-card size
+- compact centered cover asset with generous padding around the subject
+- aligned palette, texture, detail level, and edge treatment from the reference sheet
 
 Avoid:
-- photorealism unless the reference is photorealistic
-- glossy over-rendered 3D unless the reference is glossy
+- tall realistic fruit silhouette
+- photoreal product lighting unless the source is photorealistic
+- glossy over-rendered 3D unless the source is glossy
 - generic stock icon feel
-- scene background
+- broad aesthetic labels without specific source-treatment likeness
 - text, labels, watermark, or logo marks unless requested
 
 Background contract:

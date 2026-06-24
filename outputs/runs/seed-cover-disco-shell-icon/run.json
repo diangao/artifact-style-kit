@@ -27,5 +27,9 @@
   "source_review_status": "confirmed",
   "generated_cover": "outputs/runs/seed-cover-disco-shell-icon/generated/disco-shell-icon-mango-cover.png",
   "has_generated": true,
-  "has_comparison": true
+  "has_comparison": true,
+  "quality_pass": "second_pass_q_similarity",
+  "source_grid": "examples/seed-covers/q-cute-mango-grid.png",
+  "source_grid_tile_index": 3,
+  "updated_reason": "Replaced first-pass generic mango render after human feedback: covers were not Q/cute enough and not close enough to their sources."
 }
