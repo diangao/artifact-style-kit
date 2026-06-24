@@ -900,6 +900,122 @@ HTML = r"""<!doctype html>
       clip-path: polygon(10% 20%, 72% 4%, 94% 62%, 42% 100%, 0 72%);
       box-shadow: 5px 5px 0 rgba(47,111,70,.28);
     }
+    .seed-preview--dither {
+      background:
+        radial-gradient(circle at 35% 30%, rgba(30,30,26,.92) 0 1px, transparent 1.6px) 0 0 / 7px 7px,
+        linear-gradient(135deg, #f7efe1, #dac8a8);
+    }
+    .seed-preview--dither span {
+      left: 15px; top: 18px; width: 58px; height: 72px;
+      background:
+        repeating-linear-gradient(0deg, rgba(23,31,28,.92) 0 1px, transparent 1px 5px),
+        linear-gradient(135deg, #2a2a26, #725c3c);
+      clip-path: polygon(0 10%, 86% 0, 100% 80%, 16% 100%);
+      opacity: .88;
+    }
+    .seed-preview--dither i {
+      left: 25px; top: 36px; width: 38px; height: 28px;
+      background: radial-gradient(circle at 44% 48%, #f7efe1 0 2px, transparent 2.8px) 0 0 / 8px 8px;
+    }
+    .seed-preview--disco {
+      background: linear-gradient(135deg, #121516, #3b332c 62%, #eee7d6);
+    }
+    .seed-preview--disco span {
+      left: 18px; top: 18px; width: 54px; height: 54px; border-radius: 50%;
+      background:
+        linear-gradient(90deg, transparent 48%, rgba(30,30,30,.30) 49% 51%, transparent 52%),
+        linear-gradient(0deg, transparent 48%, rgba(30,30,30,.30) 49% 51%, transparent 52%),
+        conic-gradient(from 20deg, #f8f0c8, #b6e4e0, #f0938e, #f5df72, #ffffff, #8ec5ff, #f8f0c8);
+      box-shadow: 0 12px 22px rgba(0,0,0,.32), inset -10px -12px 0 rgba(0,0,0,.18);
+    }
+    .seed-preview--disco i {
+      left: 31px; top: 34px; width: 29px; height: 18px;
+      background: rgba(20,24,24,.82);
+      clip-path: polygon(0 36%, 100% 0, 80% 100%, 10% 82%);
+    }
+    .seed-preview--glass {
+      background: radial-gradient(circle at 52% 45%, rgba(104,204,244,.28), transparent 42%), linear-gradient(145deg, #090d12, #171b23);
+    }
+    .seed-preview--glass span {
+      left: 21px; top: 19px; width: 46px; height: 64px;
+      background: linear-gradient(135deg, rgba(255,255,255,.82), rgba(124,225,255,.22) 35%, rgba(240,106,187,.32) 78%, rgba(255,255,255,.68));
+      clip-path: polygon(50% 0, 94% 24%, 78% 100%, 20% 94%, 4% 26%);
+      box-shadow: inset 11px 0 0 rgba(255,255,255,.22), inset -13px -16px 0 rgba(42,109,150,.25), 0 15px 26px rgba(0,0,0,.34);
+    }
+    .seed-preview--glass i {
+      left: 16px; top: 48px; width: 56px; height: 2px;
+      background: rgba(255,255,255,.75);
+      transform: rotate(-18deg);
+      box-shadow: 0 13px 0 rgba(120,220,255,.44);
+    }
+    .seed-preview--room {
+      background: linear-gradient(180deg, #eaf1e7 0 54%, #c7b18f 55%);
+    }
+    .seed-preview--room span {
+      left: 16px; top: 18px; width: 30px; height: 32px;
+      background: #7fb7cd;
+      border: 4px solid #fff8e7;
+      box-shadow: 30px 42px 0 -8px #9f5b4e;
+    }
+    .seed-preview--room i {
+      left: 44px; top: 52px; width: 24px; height: 31px;
+      background: #355345;
+      border-radius: 50% 50% 46% 46%;
+      box-shadow: -22px 9px 0 -4px #e9c365;
+    }
+    .seed-preview--physical {
+      background:
+        linear-gradient(90deg, rgba(23,31,28,.06) 1px, transparent 1px) 0 0 / 16px 16px,
+        linear-gradient(0deg, rgba(23,31,28,.06) 1px, transparent 1px) 0 0 / 16px 16px,
+        #f6f2e8;
+    }
+    .seed-preview--physical span {
+      left: 19px; top: 22px; width: 50px; height: 62px;
+      background: #fff9df;
+      border: 1px solid rgba(23,31,28,.22);
+      transform: rotate(-7deg);
+      box-shadow: 6px 8px 0 rgba(60,72,66,.12);
+    }
+    .seed-preview--physical i {
+      left: 33px; top: 37px; width: 24px; height: 24px; border-radius: 50%;
+      background: #e35f46;
+      box-shadow: 0 0 0 5px rgba(227,95,70,.16);
+    }
+    .seed-preview--utility {
+      background: linear-gradient(135deg, #f5f6f2, #d8e2db);
+    }
+    .seed-preview--utility span {
+      left: 13px; top: 24px; width: 60px; height: 32px;
+      border-radius: 999px;
+      border: 1px solid rgba(23,31,28,.18);
+      background: #fff;
+      box-shadow: 0 10px 18px rgba(23,31,28,.12);
+    }
+    .seed-preview--utility i {
+      left: 25px; top: 34px; width: 13px; height: 13px;
+      border: 2px solid #26312d;
+      border-radius: 50%;
+    }
+    .seed-preview--utility b {
+      left: 38px; top: 47px; width: 10px; height: 2px;
+      background: #26312d;
+      transform: rotate(45deg);
+      box-shadow: 16px -15px 0 #d95547, 23px -8px 0 #2f6f46;
+    }
+    .seed-preview--constellation {
+      background: radial-gradient(circle at 50% 45%, rgba(255,255,255,.9), #eef3ef 62%, #dae4dc);
+    }
+    .seed-preview--constellation span {
+      left: 15px; top: 24px; width: 16px; height: 16px; border-radius: 5px;
+      background: #f3c75d;
+      box-shadow: 35px -5px 0 #7fb7cd, 43px 40px 0 #c45d4b, 8px 49px 0 #4f7f63;
+    }
+    .seed-preview--constellation i {
+      left: 22px; top: 31px; width: 48px; height: 46px;
+      border-top: 1px solid rgba(23,31,28,.22);
+      border-right: 1px solid rgba(23,31,28,.16);
+      transform: rotate(10deg);
+    }
     .seed-content {
       display: grid;
       align-content: start;
@@ -1175,7 +1291,7 @@ HTML = r"""<!doctype html>
         <div class="source-intro">
           <div class="eyebrow">Reusable object styles</div>
           <h2>Build a style you can reuse.</h2>
-          <p>Start with a source page or one of the object-style seeds. The first pass extracts visual evidence; once a result works, lock it as a named style and reuse it for another target.</p>
+          <p>Start with a source page or one of the visual-treatment seeds. The first pass extracts visual evidence; once a result works, lock it as a named style and reuse it for another target.</p>
           <div class="source-copy-panel">
             <div class="field">
               <label for="sourceUrl">Source URL</label>
@@ -1285,44 +1401,60 @@ HTML = r"""<!doctype html>
         preview: 'cutout'
       },
       {
-        id: 'poly',
-        label: 'Poly Pizza model shelf',
-        url: 'https://poly.pizza/explore',
-        note: 'Big library of low-poly objects; useful for geometry and silhouette references.',
-        tags: ['low poly', '3D library'],
-        preview: 'poly'
+        id: 'dither-cards',
+        label: 'Dither card system',
+        url: 'https://contra.com/community/pHXPsYuS-transform-your-designs-mastering-dither-ascii',
+        note: 'Low-ink dither, ASCII texture, motion-ready cards, and strict graphic logic.',
+        tags: ['dither', 'ASCII', 'cards'],
+        preview: 'dither'
       },
       {
-        id: 'emoji',
-        label: 'Fluent Emoji gloss',
-        url: 'https://github.com/microsoft/fluentui-emoji',
-        note: 'Open emoji set with friendly 3D shading and recognizable object taxonomy.',
-        tags: ['emoji', 'gloss', 'MIT'],
-        preview: 'emoji'
+        id: 'disco-shell',
+        label: 'Disco-shell icon',
+        url: 'https://www.racejohnson.com/projects/discomorphism',
+        note: 'A logo becomes a hard mirrored object with square facets and app-icon punch.',
+        tags: ['icon', 'mirror', 'remix'],
+        preview: 'disco'
       },
       {
-        id: 'kenney',
-        label: 'Kenney compact assets',
-        url: 'https://kenney.nl/assets/category%3A3D',
-        note: 'Readable game-object packs: clean forms, consistent scale, simple materials.',
-        tags: ['game kit', 'objects'],
-        preview: 'kenney'
+        id: 'prismatic-glass',
+        label: 'Prismatic glass object',
+        url: 'https://x.com/poletaeviktor/status/2069484424844960190',
+        note: 'Dark-stage refraction: one emblem becomes a luminous glass sculpture.',
+        tags: ['glass', 'logo', 'lighting'],
+        preview: 'glass'
       },
       {
-        id: 'hand',
-        label: 'Hand-painted low poly',
-        url: 'https://sketchfab.com/tags/low-poly',
-        note: 'Painterly facets and chunky forms; good for mushrooms, props, food, toys.',
-        tags: ['painted', 'props'],
-        preview: 'hand'
+        id: 'digital-room',
+        label: 'Whimsical digital room',
+        url: 'https://www.aileenis.online/',
+        note: 'Personal homepage as a small inhabited room: windows, props, soft scenes.',
+        tags: ['personal', 'room', 'props'],
+        preview: 'room'
       },
       {
-        id: 'line',
-        label: 'Quaternius CC0 packs',
-        url: 'https://quaternius.com/',
-        note: 'CC0 low-poly kits for objects, vehicles, buildings, and characters.',
-        tags: ['CC0', 'kits'],
-        preview: 'line'
+        id: 'physical-ui',
+        label: 'Physical-metaphor UI',
+        url: 'https://ryanstephen.co/',
+        note: 'Digital functions become clocks, paper, folders, grass, and spatial objects.',
+        tags: ['spatial', 'analog', 'interface'],
+        preview: 'physical'
+      },
+      {
+        id: 'utility-affordance',
+        label: 'Animated utility affordance',
+        url: 'https://lab01.dev/#ui-experiment',
+        note: 'Small controls with exact icons, fonts, colors, and motion constraints.',
+        tags: ['control', 'motion', 'tokens'],
+        preview: 'utility'
+      },
+      {
+        id: 'object-constellation',
+        label: 'Object constellation UI',
+        url: 'https://feather.computer/',
+        note: 'A workspace turns messages or files into sparse floating object clusters.',
+        tags: ['inbox', 'objects', 'canvas'],
+        preview: 'constellation'
       }
     ];
 
