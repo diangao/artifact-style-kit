@@ -839,18 +839,18 @@ HTML = r"""<!doctype html>
       display: block;
       font-style: normal;
     }
-    .seed-preview--mason span {
+    .seed-preview--cutout span {
       left: 14px; top: 32px; width: 58px; height: 44px;
       background: #b64131;
       clip-path: polygon(9% 28%, 56% 12%, 90% 34%, 78% 82%, 20% 88%);
       box-shadow: inset 10px 0 0 rgba(255,255,255,.10), inset -9px -8px 0 rgba(70,32,28,.28);
     }
-    .seed-preview--mason i {
+    .seed-preview--cutout i {
       left: 22px; top: 24px; width: 38px; height: 20px;
       background: #d75a43;
       clip-path: polygon(8% 88%, 50% 0, 92% 82%, 72% 100%, 20% 100%);
     }
-    .seed-preview--mason b {
+    .seed-preview--cutout b {
       left: 24px; top: 66px; width: 13px; height: 13px; border-radius: 99px;
       background: #2a2928; box-shadow: 31px 3px 0 #2a2928;
     }
@@ -1190,7 +1190,7 @@ HTML = r"""<!doctype html>
         <div class="source-examples">
           <div class="section-head">
             <h3>Style seeds to copy</h3>
-            <span>Click one to load its source URL.</span>
+            <span>Click one to start from a direction.</span>
           </div>
           <div id="styleSeeds" class="seed-grid"></div>
           <div id="styleLibrary" class="style-library" hidden></div>
@@ -1277,12 +1277,12 @@ HTML = r"""<!doctype html>
     let runtimeWasBusy = false;
     const STYLE_SEEDS = [
       {
-        id: 'mason',
-        label: 'Mason low-poly cutouts',
-        url: 'https://masonjwang.com/',
+        id: 'faceted-cutout',
+        label: 'Faceted object cutouts',
+        url: '',
         note: 'Faceted hand-painted objects, transparent cutouts, toy-like silhouettes.',
         tags: ['faceted', 'cutout', 'personal site'],
-        preview: 'mason'
+        preview: 'cutout'
       },
       {
         id: 'poly',
@@ -1552,7 +1552,7 @@ HTML = r"""<!doctype html>
     function renderStyleSeeds() {
       const root = $('styleSeeds');
       root.innerHTML = STYLE_SEEDS.map((seed) => `
-        <button class="seed-card" data-seed="${escapeHtml(seed.id)}" title="${escapeHtml(seed.url)}">
+        <button class="seed-card" data-seed="${escapeHtml(seed.id)}" title="${escapeHtml(seed.url || seed.label)}">
           <span class="seed-preview seed-preview--${escapeHtml(seed.preview)}" aria-hidden="true">
             <span></span><i></i><b></b><em></em>
           </span>
@@ -1568,9 +1568,12 @@ HTML = r"""<!doctype html>
           const seed = STYLE_SEEDS.find((item) => item.id === button.dataset.seed);
           if (!seed) return;
           pendingStyleId = '';
-          pendingSource = seed.url;
-          $('sourceUrl').value = seed.url;
-          setMessage('messageSource', `${seed.label} loaded. Describe a target next.`);
+          pendingSource = seed.url || '';
+          $('sourceUrl').value = seed.url || '';
+          setMessage(
+            'messageSource',
+            seed.url ? `${seed.label} loaded. Describe a target next.` : `${seed.label} selected. Paste a source URL when ready.`
+          );
         };
       });
     }
