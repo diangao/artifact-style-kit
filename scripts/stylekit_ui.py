@@ -1405,7 +1405,7 @@ HTML = r"""<!doctype html>
         note: 'Faceted hand-painted objects, transparent cutouts, toy-like silhouettes.',
         tags: ['faceted', 'cutout', 'personal site'],
         preview: 'cutout',
-        cover: 'examples/seed-covers/faceted-cutouts.svg'
+        cover: 'outputs/runs/seed-cover-faceted-cutouts/generated/faceted-cutouts-mango-cover.png'
       },
       {
         id: 'dither-cards',
@@ -1414,7 +1414,7 @@ HTML = r"""<!doctype html>
         note: 'Low-ink dither, ASCII texture, motion-ready cards, and strict graphic logic.',
         tags: ['dither', 'ASCII', 'cards'],
         preview: 'dither',
-        cover: 'examples/seed-covers/dither-card-system.svg'
+        cover: 'outputs/runs/seed-cover-dither-card-system/generated/dither-card-system-mango-cover.png'
       },
       {
         id: 'disco-shell',
@@ -1423,7 +1423,7 @@ HTML = r"""<!doctype html>
         note: 'A logo becomes a hard mirrored object with square facets and app-icon punch.',
         tags: ['icon', 'mirror', 'remix'],
         preview: 'disco',
-        cover: 'examples/seed-covers/disco-shell-icon.svg'
+        cover: 'outputs/runs/seed-cover-disco-shell-icon/generated/disco-shell-icon-mango-cover.png'
       },
       {
         id: 'prismatic-glass',
@@ -1432,7 +1432,7 @@ HTML = r"""<!doctype html>
         note: 'Dark-stage refraction: one emblem becomes a luminous glass sculpture.',
         tags: ['glass', 'logo', 'lighting'],
         preview: 'glass',
-        cover: 'examples/seed-covers/prismatic-glass-object.svg'
+        cover: 'outputs/runs/seed-cover-prismatic-glass-object/generated/prismatic-glass-object-mango-cover.png'
       },
       {
         id: 'digital-room',
@@ -1441,7 +1441,7 @@ HTML = r"""<!doctype html>
         note: 'Personal homepage as a small inhabited room: windows, props, soft scenes.',
         tags: ['personal', 'room', 'props'],
         preview: 'room',
-        cover: 'examples/seed-covers/whimsical-digital-room.svg'
+        cover: 'outputs/runs/seed-cover-whimsical-digital-room/generated/whimsical-digital-room-mango-cover.png'
       },
       {
         id: 'physical-ui',
@@ -1450,7 +1450,7 @@ HTML = r"""<!doctype html>
         note: 'Digital functions become clocks, paper, folders, grass, and spatial objects.',
         tags: ['spatial', 'analog', 'interface'],
         preview: 'physical',
-        cover: 'examples/seed-covers/physical-metaphor-ui.svg'
+        cover: 'outputs/runs/seed-cover-physical-metaphor-ui/generated/physical-metaphor-ui-mango-cover.png'
       },
       {
         id: 'utility-affordance',
@@ -1459,7 +1459,7 @@ HTML = r"""<!doctype html>
         note: 'Small controls with exact icons, fonts, colors, and motion constraints.',
         tags: ['control', 'motion', 'tokens'],
         preview: 'utility',
-        cover: 'examples/seed-covers/animated-utility-affordance.svg'
+        cover: 'outputs/runs/seed-cover-animated-utility-affordance/generated/animated-utility-affordance-mango-cover.png'
       },
       {
         id: 'object-constellation',
@@ -1468,7 +1468,7 @@ HTML = r"""<!doctype html>
         note: 'A workspace turns messages or files into sparse floating object clusters.',
         tags: ['inbox', 'objects', 'canvas'],
         preview: 'constellation',
-        cover: 'examples/seed-covers/object-constellation-ui.svg'
+        cover: 'outputs/runs/seed-cover-object-constellation-ui/generated/object-constellation-ui-mango-cover.png'
       }
     ];
 

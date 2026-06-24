@@ -1,0 +1,78 @@
+{
+  "generation_method": "Generated as a 4x2 seed-cover grid, then cropped into the per-seed cover files listed below.",
+  "target": "one ripe mango with a small green leaf",
+  "covers": [
+    {
+      "seed": "faceted-cutouts",
+      "label": "Faceted object cutouts",
+      "run": "seed-cover-faceted-cutouts",
+      "cover": "outputs/runs/seed-cover-faceted-cutouts/generated/faceted-cutouts-mango-cover.png",
+      "source_review": "outputs/runs/seed-cover-faceted-cutouts/source-review.json",
+      "contact_sheet": "outputs/runs/seed-cover-faceted-cutouts/contact-sheet.jpg",
+      "comparison": "outputs/runs/seed-cover-faceted-cutouts/comparison.jpg"
+    },
+    {
+      "seed": "dither-card-system",
+      "label": "Dither card system",
+      "run": "seed-cover-dither-card-system",
+      "cover": "outputs/runs/seed-cover-dither-card-system/generated/dither-card-system-mango-cover.png",
+      "source_review": "outputs/runs/seed-cover-dither-card-system/source-review.json",
+      "contact_sheet": "outputs/runs/seed-cover-dither-card-system/contact-sheet.jpg",
+      "comparison": "outputs/runs/seed-cover-dither-card-system/comparison.jpg"
+    },
+    {
+      "seed": "disco-shell-icon",
+      "label": "Disco-shell icon",
+      "run": "seed-cover-disco-shell-icon",
+      "cover": "outputs/runs/seed-cover-disco-shell-icon/generated/disco-shell-icon-mango-cover.png",
+      "source_review": "outputs/runs/seed-cover-disco-shell-icon/source-review.json",
+      "contact_sheet": "outputs/runs/seed-cover-disco-shell-icon/contact-sheet.jpg",
+      "comparison": "outputs/runs/seed-cover-disco-shell-icon/comparison.jpg"
+    },
+    {
+      "seed": "prismatic-glass-object",
+      "label": "Prismatic glass object",
+      "run": "seed-cover-prismatic-glass-object",
+      "cover": "outputs/runs/seed-cover-prismatic-glass-object/generated/prismatic-glass-object-mango-cover.png",
+      "source_review": "outputs/runs/seed-cover-prismatic-glass-object/source-review.json",
+      "contact_sheet": "outputs/runs/seed-cover-prismatic-glass-object/contact-sheet.jpg",
+      "comparison": "outputs/runs/seed-cover-prismatic-glass-object/comparison.jpg"
+    },
+    {
+      "seed": "whimsical-digital-room",
+      "label": "Whimsical digital room",
+      "run": "seed-cover-whimsical-digital-room",
+      "cover": "outputs/runs/seed-cover-whimsical-digital-room/generated/whimsical-digital-room-mango-cover.png",
+      "source_review": "outputs/runs/seed-cover-whimsical-digital-room/source-review.json",
+      "contact_sheet": "outputs/runs/seed-cover-whimsical-digital-room/contact-sheet.jpg",
+      "comparison": "outputs/runs/seed-cover-whimsical-digital-room/comparison.jpg"
+    },
+    {
+      "seed": "physical-metaphor-ui",
+      "label": "Physical-metaphor UI",
+      "run": "seed-cover-physical-metaphor-ui",
+      "cover": "outputs/runs/seed-cover-physical-metaphor-ui/generated/physical-metaphor-ui-mango-cover.png",
+      "source_review": "outputs/runs/seed-cover-physical-metaphor-ui/source-review.json",
+      "contact_sheet": "outputs/runs/seed-cover-physical-metaphor-ui/contact-sheet.jpg",
+      "comparison": "outputs/runs/seed-cover-physical-metaphor-ui/comparison.jpg"
+    },
+    {
+      "seed": "animated-utility-affordance",
+      "label": "Animated utility affordance",
+      "run": "seed-cover-animated-utility-affordance",
+      "cover": "outputs/runs/seed-cover-animated-utility-affordance/generated/animated-utility-affordance-mango-cover.png",
+      "source_review": "outputs/runs/seed-cover-animated-utility-affordance/source-review.json",
+      "contact_sheet": "outputs/runs/seed-cover-animated-utility-affordance/contact-sheet.jpg",
+      "comparison": "outputs/runs/seed-cover-animated-utility-affordance/comparison.jpg"
+    },
+    {
+      "seed": "object-constellation-ui",
+      "label": "Object constellation UI",
+      "run": "seed-cover-object-constellation-ui",
+      "cover": "outputs/runs/seed-cover-object-constellation-ui/generated/object-constellation-ui-mango-cover.png",
+      "source_review": "outputs/runs/seed-cover-object-constellation-ui/source-review.json",
+      "contact_sheet": "outputs/runs/seed-cover-object-constellation-ui/contact-sheet.jpg",
+      "comparison": "outputs/runs/seed-cover-object-constellation-ui/comparison.jpg"
+    }
+  ]
+}

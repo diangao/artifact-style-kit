@@ -17,6 +17,21 @@ material rule, layout rule, or interaction rule that can survive a new target.
 | Animated utility affordance | `https://lab01.dev/#ui-experiment` | Rebuild a utility control with exact icon, font, color-token, and motion constraints. |
 | Object constellation UI | `https://feather.computer/` | Represent information as sparse floating object clusters on a canvas instead of a list. |
 
+## Seed Cover Contract
+
+The seed shelf covers are generated artifacts, not generic icons. Each cover
+uses the same target, "one ripe mango with a small green leaf", so the shelf
+compares style treatment instead of subject matter.
+
+Cover provenance is recorded in `examples/seed-covers/cover-manifest.json`.
+Each entry points to a `outputs/runs/seed-cover-*` run with:
+
+- reference evidence copied into `reference-assets/`
+- a source `contact-sheet.jpg`
+- confirmed `source-review.json`
+- `prompt.txt`, `taste-notes.md`, and `run.json`
+- a generated mango cover candidate in `generated/`
+
 ## Selection Rule
 
 A seed earns a slot when it has at least two of these:

@@ -1,0 +1,9 @@
+{
+  "status": "confirmed",
+  "subject": "cover thumbnail: one ripe mango with a small green leaf rendered as Disco-shell icon",
+  "source_url": "manual reference folder",
+  "review_goal": "Confirm that the extracted elements/contact sheet are the right source evidence.",
+  "ignored_reference_assets": [],
+  "missing_reference_notes": "Cover candidate generated as a shared mango target across all seed styles; reference evidence is stored in this run under reference-assets/.",
+  "style_notes": "Use the source evidence to render the same mango target through the Disco-shell icon treatment. This run exists to produce the seed cover thumbnail."
+}

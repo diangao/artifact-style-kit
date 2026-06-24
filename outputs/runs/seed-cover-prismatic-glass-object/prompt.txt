@@ -1,0 +1,30 @@
+Use the contact sheet as visual evidence, then follow the reviewed source-element contract in `outputs/runs/seed-cover-prismatic-glass-object/source-review.json`. Create one small standalone visual asset: cover thumbnail: one ripe mango with a small green leaf rendered as Prismatic glass object.
+
+Before generation:
+- Read the source review.
+- Use the confirmed contact-sheet elements as the evidence set.
+- Treat `ignored_reference_assets` and `missing_reference_notes` as constraints.
+- If the source review is still `draft`, stop and ask for a human extraction pass before generating.
+
+Style constraints:
+- handmade object asset
+- compact centered cutout
+- consistent viewpoint with the reference sheet
+- aligned palette, texture, detail level, and edge treatment
+- generous padding around the subject
+
+Avoid:
+- photorealism unless the reference is photorealistic
+- glossy over-rendered 3D unless the reference is glossy
+- generic stock icon feel
+- scene background
+- text, labels, watermark, or logo marks unless requested
+
+Background contract:
+- Put the subject on a perfectly flat solid #ff00ff chroma-key background for background removal.
+- Do not use #ff00ff anywhere in the subject.
+- No cast shadow, gradient, texture, floor plane, or reflection in the background.
+
+Loop contract:
+- Iterate at most 1 times before stopping for review.
+- Prefer a clearly reviewable candidate over endless refinement.
