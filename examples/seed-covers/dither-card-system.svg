@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-label="Dither card system">
+  <defs>
+    <pattern id="dots" width="8" height="8" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.4" fill="#1b211e"/>
+      <circle cx="6" cy="6" r=".9" fill="#1b211e" opacity=".62"/>
+    </pattern>
+    <pattern id="scan" width="6" height="6" patternUnits="userSpaceOnUse">
+      <rect y="0" width="6" height="1" fill="#171f1c" opacity=".84"/>
+    </pattern>
+  </defs>
+  <rect width="160" height="160" rx="14" fill="#efe3c7"/>
+  <rect width="160" height="160" rx="14" fill="url(#dots)" opacity=".82"/>
+  <rect x="30" y="22" width="100" height="116" rx="10" fill="#f9f1da" stroke="#171f1c" stroke-opacity=".18"/>
+  <rect x="44" y="34" width="72" height="58" rx="2" fill="#34332c"/>
+  <rect x="44" y="34" width="72" height="58" rx="2" fill="url(#scan)" opacity=".56"/>
+  <g fill="#f8efd5">
+    <circle cx="56" cy="48" r="4"/>
+    <circle cx="70" cy="48" r="4"/>
+    <circle cx="84" cy="48" r="4"/>
+    <circle cx="98" cy="48" r="4"/>
+    <circle cx="63" cy="62" r="4"/>
+    <circle cx="77" cy="62" r="4"/>
+    <circle cx="91" cy="62" r="4"/>
+    <circle cx="105" cy="62" r="4"/>
+    <circle cx="56" cy="76" r="4"/>
+    <circle cx="70" cy="76" r="4"/>
+    <circle cx="84" cy="76" r="4"/>
+    <circle cx="98" cy="76" r="4"/>
+  </g>
+  <path d="M42 103h76M42 116h54M42 128h68" stroke="#171f1c" stroke-width="5" stroke-linecap="round"/>
+  <path d="M36 28 123 21M31 129l98-14" stroke="#171f1c" stroke-opacity=".25" stroke-width="2"/>
+</svg>

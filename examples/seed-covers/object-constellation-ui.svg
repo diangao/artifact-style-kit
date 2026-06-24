@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-label="Object constellation UI">
+  <rect width="160" height="160" rx="14" fill="#f4f7f3"/>
+  <circle cx="82" cy="77" r="58" fill="#ffffff" opacity=".72"/>
+  <path d="M45 55 95 48 121 82 105 119 55 116 37 86z" fill="none" stroke="#aab5ae" stroke-width="2"/>
+  <g>
+    <rect x="35" y="43" width="27" height="24" rx="7" fill="#f2bf43"/>
+    <path d="M45 49h22" stroke="#d9a625" stroke-width="3" stroke-linecap="round"/>
+  </g>
+  <g>
+    <rect x="91" y="31" width="31" height="31" rx="8" fill="#79b9cf"/>
+    <circle cx="106" cy="47" r="5" fill="#d8f1f5"/>
+  </g>
+  <g>
+    <rect x="108" y="88" width="29" height="29" rx="8" fill="#c55a4b"/>
+    <path d="M115 102h15" stroke="#f7d6ce" stroke-width="3" stroke-linecap="round"/>
+  </g>
+  <g>
+    <rect x="45" y="103" width="31" height="31" rx="8" fill="#477f5d"/>
+    <path d="M54 119h13" stroke="#dcebdd" stroke-width="3" stroke-linecap="round"/>
+  </g>
+  <circle cx="81" cy="78" r="4" fill="#171f1c" opacity=".22"/>
+  <path d="M81 78 49 55M81 78l26-31M81 78l41 25M81 78l-20 41" stroke="#171f1c" stroke-opacity=".16" stroke-width="2"/>
+</svg>

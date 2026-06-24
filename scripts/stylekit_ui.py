@@ -839,6 +839,12 @@ HTML = r"""<!doctype html>
       display: block;
       font-style: normal;
     }
+    .seed-preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
     .seed-preview--cutout span {
       left: 14px; top: 32px; width: 58px; height: 44px;
       background: #b64131;
@@ -1398,7 +1404,8 @@ HTML = r"""<!doctype html>
         url: '',
         note: 'Faceted hand-painted objects, transparent cutouts, toy-like silhouettes.',
         tags: ['faceted', 'cutout', 'personal site'],
-        preview: 'cutout'
+        preview: 'cutout',
+        cover: 'examples/seed-covers/faceted-cutouts.svg'
       },
       {
         id: 'dither-cards',
@@ -1406,7 +1413,8 @@ HTML = r"""<!doctype html>
         url: 'https://contra.com/community/pHXPsYuS-transform-your-designs-mastering-dither-ascii',
         note: 'Low-ink dither, ASCII texture, motion-ready cards, and strict graphic logic.',
         tags: ['dither', 'ASCII', 'cards'],
-        preview: 'dither'
+        preview: 'dither',
+        cover: 'examples/seed-covers/dither-card-system.svg'
       },
       {
         id: 'disco-shell',
@@ -1414,7 +1422,8 @@ HTML = r"""<!doctype html>
         url: 'https://www.racejohnson.com/projects/discomorphism',
         note: 'A logo becomes a hard mirrored object with square facets and app-icon punch.',
         tags: ['icon', 'mirror', 'remix'],
-        preview: 'disco'
+        preview: 'disco',
+        cover: 'examples/seed-covers/disco-shell-icon.svg'
       },
       {
         id: 'prismatic-glass',
@@ -1422,7 +1431,8 @@ HTML = r"""<!doctype html>
         url: 'https://x.com/poletaeviktor/status/2069484424844960190',
         note: 'Dark-stage refraction: one emblem becomes a luminous glass sculpture.',
         tags: ['glass', 'logo', 'lighting'],
-        preview: 'glass'
+        preview: 'glass',
+        cover: 'examples/seed-covers/prismatic-glass-object.svg'
       },
       {
         id: 'digital-room',
@@ -1430,7 +1440,8 @@ HTML = r"""<!doctype html>
         url: 'https://www.aileenis.online/',
         note: 'Personal homepage as a small inhabited room: windows, props, soft scenes.',
         tags: ['personal', 'room', 'props'],
-        preview: 'room'
+        preview: 'room',
+        cover: 'examples/seed-covers/whimsical-digital-room.svg'
       },
       {
         id: 'physical-ui',
@@ -1438,7 +1449,8 @@ HTML = r"""<!doctype html>
         url: 'https://ryanstephen.co/',
         note: 'Digital functions become clocks, paper, folders, grass, and spatial objects.',
         tags: ['spatial', 'analog', 'interface'],
-        preview: 'physical'
+        preview: 'physical',
+        cover: 'examples/seed-covers/physical-metaphor-ui.svg'
       },
       {
         id: 'utility-affordance',
@@ -1446,7 +1458,8 @@ HTML = r"""<!doctype html>
         url: 'https://lab01.dev/#ui-experiment',
         note: 'Small controls with exact icons, fonts, colors, and motion constraints.',
         tags: ['control', 'motion', 'tokens'],
-        preview: 'utility'
+        preview: 'utility',
+        cover: 'examples/seed-covers/animated-utility-affordance.svg'
       },
       {
         id: 'object-constellation',
@@ -1454,7 +1467,8 @@ HTML = r"""<!doctype html>
         url: 'https://feather.computer/',
         note: 'A workspace turns messages or files into sparse floating object clusters.',
         tags: ['inbox', 'objects', 'canvas'],
-        preview: 'constellation'
+        preview: 'constellation',
+        cover: 'examples/seed-covers/object-constellation-ui.svg'
       }
     ];
 
@@ -1686,7 +1700,9 @@ HTML = r"""<!doctype html>
       root.innerHTML = STYLE_SEEDS.map((seed) => `
         <button class="seed-card" data-seed="${escapeHtml(seed.id)}" title="${escapeHtml(seed.url || seed.label)}">
           <span class="seed-preview seed-preview--${escapeHtml(seed.preview)}" aria-hidden="true">
-            <span></span><i></i><b></b><em></em>
+            ${seed.cover
+              ? `<img src="${fileUrl(seed.cover)}" alt="">`
+              : '<span></span><i></i><b></b><em></em>'}
           </span>
           <span class="seed-content">
             <strong>${escapeHtml(seed.label)}</strong>
